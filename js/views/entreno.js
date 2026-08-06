@@ -1,0 +1,504 @@
+/**
+ * Runtime de la sesión: el peso ya viene puesto, tú confirmas lo que has hecho
+ * y el descanso arranca solo.
+ */
+import {
+  S, guardar, uid, rutinaActiva, siguienteDia, historial, e1rm, enCalibracion,
+} from '../store.js';
+import {
+  acts, esc, toast, sheet, confirmar, num, kg, mmss, duracion, hoyISO, $,
+} from '../lib/ui.js';
+import { sugerencia, avisoEstancamiento, incrementoDe, marcas } from '../engine/progression.js';
+import { cargar as cargarCatalogo, ejercicio, gifDe, alternativas, buscar } from '../data/catalog.js';
+import { tTarget, tEquipo, equiposDisponibles } from '../data/i18n.js';
+import { cambiarEjercicio } from '../engine/generator.js';
+import * as timer from '../engine/timer.js';
+
+let ctx = null;
+let desuscribir = null;
+
+export function salir() {
+  desuscribir?.();
+  desuscribir = null;
+  timer.mantenerPantalla(false);
+}
+
+export async function render(c) {
+  ctx = c;
+  await cargarCatalogo();
+
+  if (!S.sesionActiva) return pintarInicio();
+
+  pintarSesion();
+  timer.mantenerPantalla(true);
+  desuscribir?.();
+  desuscribir = timer.alTic(actualizarTemporizador);
+}
+
+/* ==========================================================================
+   Antes de empezar: elegir el día
+   ========================================================================== */
+
+function pintarInicio() {
+  const rutina = rutinaActiva();
+  if (!rutina?.dias?.length) {
+    ctx.view.innerHTML = `
+      <div class="empty">
+        <h3>No hay ninguna rutina activa</h3>
+        <p class="small">Crea una rutina y vuelve. Sin plan no hay progresión.</p>
+        <button class="btn primary mt" data-act="rutinas">Ir a rutinas</button>
+      </div>`;
+    return acts(ctx.view, { rutinas: () => ctx.ir('/rutinas') });
+  }
+
+  const sugerido = siguienteDia(rutina);
+  ctx.view.innerHTML = `
+    <h2 class="page-title">Empezar entreno</h2>
+    <p class="page-sub">${esc(rutina.nombre)} · toca el día que vas a hacer.</p>
+    <div class="stack">
+      ${rutina.dias.map((d) => {
+    const esHoy = d.id === sugerido?.id;
+    const ultima = S.sesiones.filter((s) => s.diaId === d.id).at(-1);
+    return `
+        <button class="list-item" data-act="empezar" data-id="${d.id}" style="${esHoy ? 'border-color:var(--accent)' : ''}">
+          <div class="body">
+            <b>${esc(d.nombre)}</b>
+            <small>${d.ejercicios.length} ejercicios${ultima ? ` · última vez ${ultima.fecha}` : ' · nunca'}</small>
+          </div>
+          ${esHoy ? '<span class="tag accent">Toca hoy</span>' : ''}
+        </button>`;
+  }).join('')}
+    </div>`;
+
+  acts(ctx.view, {
+    rutinas: () => ctx.ir('/rutinas'),
+    empezar: (n) => empezarSesion(rutina, rutina.dias.find((d) => d.id === n.dataset.id)),
+  });
+}
+
+function empezarSesion(rutina, dia) {
+  if (!dia) return;
+  S.sesionActiva = {
+    id: uid(),
+    fecha: hoyISO(),
+    inicio: Date.now(),
+    rutinaId: rutina.id,
+    diaId: dia.id,
+    nombre: dia.nombre,
+    idx: 0,
+    ejercicios: dia.ejercicios.map((e) => ({
+      ...e,
+      sug: sugerencia(e, historial(e.exId)),
+      sets: [],
+      nota: '',
+    })),
+  };
+  if (!S.coach.inicio) S.coach.inicio = hoyISO();
+  guardar();
+  timer.prepararAudio();
+  render(ctx);
+}
+
+/* ==========================================================================
+   Sesión en curso
+   ========================================================================== */
+
+function pintarSesion() {
+  const s = S.sesionActiva;
+  const ej = s.ejercicios[s.idx];
+  const ex = ejercicio(ej.exId);
+  const hist = historial(ej.exId);
+  const aviso = avisoEstancamiento(ej, hist, ej.sug.estado);
+  const hechas = s.ejercicios.reduce((t, e) => t + e.sets.filter((x) => x.reps > 0).length, 0);
+  const total = s.ejercicios.reduce((t, e) => t + Math.max(e.series, e.sets.length), 0);
+
+  ctx.view.innerHTML = `
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <div>
+        <div class="eyebrow">${esc(s.nombre)}</div>
+        <p class="tiny faint mb0">Ejercicio ${s.idx + 1} de ${s.ejercicios.length} · ${hechas}/${total} series</p>
+      </div>
+      <button class="btn sm quiet" data-act="terminar">Terminar</button>
+    </div>
+    <div class="bar mt" style="margin-bottom:16px"><i style="width:${total ? (hechas / total) * 100 : 0}%"></i></div>
+
+    <div class="card accent">
+      <div class="row" style="gap:13px;align-items:flex-start">
+        <img class="thumb" style="width:74px;height:74px;flex:none" alt=""
+             src="${gifDe(ex)}" loading="lazy"
+             onerror="this.style.visibility='hidden'">
+        <div style="min-width:0;flex:1">
+          <h3 style="text-transform:capitalize;font-size:1.05rem">${esc(ej.nombre)}</h3>
+          <p class="tiny faint" style="margin:4px 0 8px">
+            ${esc(tTarget(ej.target))} · ${esc(tEquipo(ej.equipment))} · objetivo ${ej.repMin}-${ej.repMax} reps
+          </p>
+          <div class="row wrap" style="gap:6px">
+            <button class="btn sm quiet" data-act="comoSeHace">Cómo se hace</button>
+            <button class="btn sm quiet" data-act="cambiar">Cambiar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="eyebrow">Qué toca hoy</div>
+      <p class="small mb0">${esc(ej.sug.motivo)}</p>
+      ${aviso ? `<p class="small" style="color:var(--bad);margin-top:8px">${esc(aviso.texto)}</p>` : ''}
+      ${hist.length ? `<p class="tiny faint" style="margin-top:8px">Última vez (${hist.at(-1).fecha}): ${hist.at(-1).sets.map((x) => `${num(x.peso)}×${x.reps}`).join(' · ')}</p>` : ''}
+    </div>
+
+    ${filasDeSeries(ej)}
+
+    <div class="row mt">
+      <button class="btn quiet grow" data-act="anterior" ${s.idx === 0 ? 'disabled' : ''}>Anterior</button>
+      <button class="btn ${todasHechas(ej) ? 'primary' : 'ghost'} grow" data-act="siguiente"
+              ${s.idx === s.ejercicios.length - 1 ? 'disabled' : ''}>Siguiente</button>
+    </div>
+    <button class="btn quiet block mt" data-act="anadirSerie">Añadir una serie más</button>
+
+    <div id="timer-slot"></div>`;
+
+  acts(ctx.view, MANEJADORES);
+  actualizarTemporizador(timer.restante());
+}
+
+const todasHechas = (ej) => ej.sets.filter((x) => x.reps > 0).length >= ej.series;
+
+/** Filas de series: hechas arriba, la siguiente con los campos listos. */
+function filasDeSeries(ej) {
+  const inc = incrementoDe(ej.equipment);
+  const n = Math.max(ej.series, ej.sets.length + 1);
+  const filas = [];
+
+  for (let i = 0; i < n; i++) {
+    const hecha = ej.sets[i];
+    if (hecha) {
+      filas.push(`
+        <button class="list-item" data-act="editarSerie" data-i="${i}" style="padding:10px 12px">
+          <span class="tag accent" style="flex:none">${i + 1}</span>
+          <div class="body">
+            <b class="mono">${num(hecha.peso)} kg × ${hecha.reps}</b>
+            <small>${hecha.rir != null ? `RIR ${hecha.rir}` : 'sin esfuerzo marcado'} · 1RM est. ${num(e1rm(hecha.peso, hecha.reps, hecha.rir))} kg</small>
+          </div>
+          <span class="tiny faint">editar</span>
+        </button>`);
+      continue;
+    }
+    if (i === ej.sets.length) {
+      filas.push(filaActiva(ej, i, inc));
+      continue;
+    }
+    // Las series aún por hacer heredan el peso de la última que sí registró.
+    const previsto = ej.sets.at(-1)?.peso ?? ej.sug.peso;
+    filas.push(`
+      <div class="list-item" style="padding:10px 12px;opacity:.4">
+        <span class="tag" style="flex:none">${i + 1}</span>
+        <div class="body"><b class="mono">${previsto != null ? `${num(previsto)} kg × ${ej.sug.reps}` : `— × ${ej.sug.reps}`}</b></div>
+      </div>`);
+  }
+  return `<div class="stack" style="gap:8px;margin-top:16px">${filas.join('')}</div>`;
+}
+
+function filaActiva(ej, i, inc) {
+  const previa = ej.sets[i - 1];
+  const peso = previa?.peso ?? ej.sug.peso ?? '';
+  const reps = ej.sug.reps ?? ej.repMin;
+  const rir = 2;
+  return `
+    <div class="card accent glow" style="margin:0;padding:14px">
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:12px">
+        <span class="eyebrow mb0">Serie ${i + 1}</span>
+        <span class="tiny faint">${ej.repMin}-${ej.repMax} reps</span>
+      </div>
+
+      <div class="row" style="gap:10px">
+        <div style="flex:1">
+          <label class="tiny faint">Peso (kg)</label>
+          <div class="row" style="gap:6px;margin-top:4px">
+            <button class="icon-btn" data-act="pesoMenos" data-inc="${inc || 1}">−</button>
+            <input class="input num grow center" id="in-peso" type="number" inputmode="decimal" step="0.5"
+                   value="${peso}" placeholder="—" style="min-height:52px;font-size:1.2rem">
+            <button class="icon-btn" data-act="pesoMas" data-inc="${inc || 1}">+</button>
+          </div>
+        </div>
+        <div style="flex:1">
+          <label class="tiny faint">Reps</label>
+          <div class="row" style="gap:6px;margin-top:4px">
+            <button class="icon-btn" data-act="repsMenos">−</button>
+            <input class="input num grow center" id="in-reps" type="number" inputmode="numeric"
+                   value="${reps}" style="min-height:52px;font-size:1.2rem">
+            <button class="icon-btn" data-act="repsMas">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:12px">
+        <label class="tiny faint">Reps que te quedaban (RIR)</label>
+        <div class="chips" style="margin-top:6px" id="rir-chips">
+          ${[0, 1, 2, 3, 4].map((v) => `
+            <button class="chip ${v === rir ? 'on' : ''}" data-act="rir" data-v="${v}">${v === 4 ? '4+' : v}</button>`).join('')}
+        </div>
+      </div>
+
+      <button class="btn primary block lg mt" data-act="guardarSerie">Serie hecha</button>
+    </div>`;
+}
+
+/* ---------- Acciones ---------- */
+
+let rirElegido = 2;
+
+const MANEJADORES = {
+  pesoMenos: (n) => ajustar('#in-peso', -Number(n.dataset.inc || 1)),
+  pesoMas: (n) => ajustar('#in-peso', Number(n.dataset.inc || 1)),
+  repsMenos: () => ajustar('#in-reps', -1),
+  repsMas: () => ajustar('#in-reps', 1),
+
+  rir: (n) => {
+    rirElegido = Number(n.dataset.v);
+    n.parentElement.querySelectorAll('.chip').forEach((c) => c.classList.toggle('on', c === n));
+  },
+
+  guardarSerie: () => {
+    const s = S.sesionActiva;
+    const ej = s.ejercicios[s.idx];
+    const peso = Number($('#in-peso').value);
+    const reps = Number($('#in-reps').value);
+    if (!reps || reps < 1) return toast('¿Cuántas reps has hecho?', 'bad');
+    if (Number.isNaN(peso)) return toast('Falta el peso', 'bad');
+
+    // El récord se compara contra el historial cerrado, antes de apuntar la serie.
+    const previo = marcas(historial(ej.exId));
+    const nuevo = e1rm(peso, reps, rirElegido);
+
+    ej.sets.push({ peso, reps, rir: rirElegido, ts: Date.now() });
+    rirElegido = 2;
+    guardar();
+
+    if (previo && nuevo > previo.e1rmMax) toast(`¡Récord en ${ej.nombre}!`, 'ok');
+
+    if (todasHechas(ej) && s.idx < s.ejercicios.length - 1) {
+      toast('Ejercicio completado', 'ok');
+    } else {
+      timer.arrancar(ej.descanso);
+    }
+    pintarSesion();
+  },
+
+  editarSerie: (n) => editarSerie(Number(n.dataset.i)),
+
+  anadirSerie: () => {
+    const s = S.sesionActiva;
+    s.ejercicios[s.idx].series += 1;
+    guardar();
+    pintarSesion();
+  },
+
+  anterior: () => { S.sesionActiva.idx--; guardar(); pintarSesion(); },
+  siguiente: () => { S.sesionActiva.idx++; guardar(); pintarSesion(); },
+
+  comoSeHace: () => verInstrucciones(),
+  cambiar: () => cambiarEjercicioSheet(),
+
+  saltarDescanso: () => { timer.parar(); pintarSesion(); },
+  masTiempo: () => timer.sumar(30),
+  menosTiempo: () => timer.sumar(-15),
+
+  terminar: () => terminarSesion(),
+};
+
+function ajustar(sel, delta) {
+  const el = $(sel);
+  if (!el) return;
+  const v = Number(el.value || 0) + delta;
+  el.value = Math.max(0, Math.round(v * 100) / 100);
+}
+
+function editarSerie(i) {
+  const ej = S.sesionActiva.ejercicios[S.sesionActiva.idx];
+  const set = ej.sets[i];
+  if (!set) return;
+  const s = sheet({
+    title: `Serie ${i + 1}`,
+    body: `
+      <div class="row">
+        <div class="field grow"><label>Peso</label>
+          <input class="input num" id="ed-peso" type="number" inputmode="decimal" step="0.5" value="${set.peso}"></div>
+        <div class="field grow"><label>Reps</label>
+          <input class="input num" id="ed-reps" type="number" inputmode="numeric" value="${set.reps}"></div>
+      </div>
+      <div class="field">
+        <label>RIR</label>
+        <div class="chips" id="ed-rir">
+          ${[0, 1, 2, 3, 4].map((v) => `<button class="chip ${v === set.rir ? 'on' : ''}" data-v="${v}">${v === 4 ? '4+' : v}</button>`).join('')}
+        </div>
+      </div>
+      <button class="btn primary block" id="ed-ok">Guardar</button>
+      <button class="btn danger block mt" id="ed-del">Borrar serie</button>`,
+  });
+  let rir = set.rir;
+  s.el.querySelector('#ed-rir').addEventListener('click', (e) => {
+    const b = e.target.closest('.chip');
+    if (!b) return;
+    rir = Number(b.dataset.v);
+    s.el.querySelectorAll('#ed-rir .chip').forEach((c) => c.classList.toggle('on', c === b));
+  });
+  s.el.querySelector('#ed-ok').onclick = () => {
+    set.peso = Number(s.el.querySelector('#ed-peso').value);
+    set.reps = Number(s.el.querySelector('#ed-reps').value);
+    set.rir = rir;
+    guardar();
+    s.close();
+    pintarSesion();
+  };
+  s.el.querySelector('#ed-del').onclick = () => {
+    ej.sets.splice(i, 1);
+    guardar();
+    s.close();
+    pintarSesion();
+  };
+}
+
+function verInstrucciones() {
+  const ej = S.sesionActiva.ejercicios[S.sesionActiva.idx];
+  const ex = ejercicio(ej.exId);
+  if (!ex) return;
+  sheet({
+    title: ex.name,
+    body: `
+      <img src="${gifDe(ex)}" alt="" style="width:100%;max-width:260px;display:block;margin:0 auto 16px;border-radius:14px;background:#fff">
+      <div class="row wrap" style="gap:6px;margin-bottom:14px">
+        <span class="tag accent">${esc(tTarget(ex.target))}</span>
+        <span class="tag">${esc(tEquipo(ex.equipment))}</span>
+        ${ex.secondary.slice(0, 3).map((m) => `<span class="tag">${esc(tTarget(m))}</span>`).join('')}
+      </div>
+      <ol class="stack small" style="padding-left:18px;list-style:decimal">
+        ${ex.steps.map((p) => `<li style="margin-bottom:8px">${esc(p)}</li>`).join('')}
+      </ol>`,
+  });
+}
+
+function cambiarEjercicioSheet() {
+  const s = S.sesionActiva;
+  const ej = s.ejercicios[s.idx];
+  const ex = ejercicio(ej.exId);
+  const equipos = equiposDisponibles(S.perfil?.categorias || []);
+  const alts = alternativas(ex, equipos, 10);
+
+  const item = (o) => `
+    <button class="list-item" data-id="${o.id}">
+      <img class="thumb" src="${gifDe(o)}" alt="" loading="lazy" onerror="this.className='thumb ph'">
+      <div class="body">
+        <b class="truncate" style="text-transform:capitalize">${esc(o.name)}</b>
+        <small>${esc(tTarget(o.target))} · ${esc(tEquipo(o.equipment))}</small>
+      </div>
+    </button>`;
+
+  const hoja = sheet({
+    title: 'Cambiar ejercicio',
+    body: `
+      <p class="muted small">Mismo músculo (${esc(tTarget(ex.target))}), distinto material. El historial del ejercicio nuevo empieza de cero.</p>
+      <input class="input" id="bus" placeholder="O busca otro ejercicio…" style="margin-bottom:12px">
+      <div id="lista" class="stack" style="gap:8px">${alts.map(item).join('')}</div>`,
+  });
+
+  hoja.el.querySelector('#bus').addEventListener('input', (e) => {
+    const q = e.target.value.trim();
+    const res = q.length > 1 ? buscar({ q, equipos, limite: 20 }) : alts;
+    hoja.el.querySelector('#lista').innerHTML = res.map(item).join('');
+  });
+
+  hoja.el.querySelector('#lista').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-id]');
+    if (!b) return;
+    const nuevoConfig = cambiarEjercicio(ej, b.dataset.id);
+    Object.assign(ej, nuevoConfig, { sug: sugerencia(nuevoConfig, historial(nuevoConfig.exId)), sets: ej.sets });
+    guardar();
+    hoja.close();
+    pintarSesion();
+    toast('Ejercicio cambiado');
+  });
+}
+
+/* ---------- Temporizador ---------- */
+
+function actualizarTemporizador(restante) {
+  const slot = ctx?.view.querySelector('#timer-slot');
+  if (!slot) return;
+  if (!timer.activo()) { slot.innerHTML = ''; return; }
+  const pct = (restante / (timer.duracionTotal() || 1)) * 100;
+  slot.innerHTML = `
+    <div style="position:fixed;left:0;right:0;bottom:calc(var(--tabbar-h) + var(--safe-b));z-index:60;
+                background:#181818;border-top:1px solid var(--accent-line);padding:12px 16px calc(12px);
+                max-width:560px;margin:0 auto">
+      <div class="row" style="align-items:center;justify-content:space-between;gap:12px">
+        <div>
+          <div class="tiny faint">Descanso</div>
+          <b class="mono" style="font-size:1.6rem;color:var(--accent)">${mmss(restante)}</b>
+        </div>
+        <div class="row" style="gap:6px">
+          <button class="btn sm quiet" data-act="menosTiempo">−15 s</button>
+          <button class="btn sm quiet" data-act="masTiempo">+30 s</button>
+          <button class="btn sm ghost" data-act="saltarDescanso">Saltar</button>
+        </div>
+      </div>
+      <div class="bar" style="margin-top:8px"><i style="width:${pct}%"></i></div>
+    </div>`;
+}
+
+/* ---------- Cierre ---------- */
+
+async function terminarSesion() {
+  const s = S.sesionActiva;
+  const series = s.ejercicios.reduce((t, e) => t + e.sets.filter((x) => x.reps > 0).length, 0);
+
+  if (!series) {
+    if (!await confirmar('Descartar sesión', 'No has registrado ninguna serie. Se descartará la sesión.', 'Descartar')) return;
+    S.sesionActiva = null;
+    timer.parar();
+    guardar();
+    return ctx.ir('/hoy');
+  }
+
+  if (!await confirmar('Terminar entreno', `Vas a guardar ${series} series. Después ya no se puede seguir añadiendo a esta sesión.`, 'Terminar', false)) return;
+
+  const records = [];
+  for (const e of s.ejercicios) {
+    const previo = marcas(historial(e.exId));
+    const mejorHoy = Math.max(0, ...e.sets.map((x) => e1rm(x.peso, x.reps, x.rir)));
+    // Sin historial previo no hay récord que batir: la primera vez es la marca base.
+    if (previo && mejorHoy > previo.e1rmMax) records.push({ nombre: e.nombre, e1rm: mejorHoy });
+  }
+
+  const sesion = {
+    ...s,
+    fin: Date.now(),
+    duracion: Date.now() - s.inicio,
+    ejercicios: s.ejercicios.filter((e) => e.sets.length),
+  };
+  delete sesion.idx;
+  S.sesiones.push(sesion);
+  S.sesionActiva = null;
+  timer.parar();
+  timer.mantenerPantalla(false);
+  guardar();
+
+  const tonelaje = sesion.ejercicios.reduce((t, e) => t + e.sets.reduce((u, x) => u + x.peso * x.reps, 0), 0);
+  sheet({
+    title: 'Sesión guardada',
+    body: `
+      <div class="stat-grid">
+        <div class="stat hi"><b>${series}</b><span>series</span></div>
+        <div class="stat"><b>${Math.round(tonelaje)}</b><span>kg movidos</span></div>
+        <div class="stat"><b>${duracion(sesion.duracion)}</b><span>duración</span></div>
+      </div>
+      ${records.length ? `
+        <div class="card accent mt">
+          <div class="eyebrow">Récords de hoy</div>
+          ${records.map((r) => `<p class="small mb0" style="text-transform:capitalize">${esc(r.nombre)} · ${kg(r.e1rm)} de 1RM estimado</p>`).join('')}
+        </div>` : ''}
+      <p class="muted small mt">${enCalibracion()
+    ? 'Sigo midiendo. Cuando cierres la semana 2 te doy el informe completo.'
+    : 'Ya he actualizado tus pesos para la próxima sesión de este día.'}</p>`,
+  });
+  ctx.ir('/hoy');
+}

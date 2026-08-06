@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0f0f0f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="Entrenador personal: rutinas, progresión de pesos y comidas.">
+<title>FORJA</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/icon-180.png">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<div id="app" hidden>
+  <header class="topbar">
+    <div class="topbar-in">
+      <h1 class="brand">FORJA<span>.</span></h1>
+      <div class="topbar-right" id="topbar-right"></div>
+    </div>
+  </header>
+
+  <main id="view" class="view"></main>
+
+  <nav class="tabbar" id="tabbar">
+    <a href="#/hoy" data-tab="hoy">
+      <svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/></svg>
+      <span>Hoy</span>
+    </a>
+    <a href="#/rutinas" data-tab="rutinas">
+      <svg viewBox="0 0 24 24"><path d="M6.5 8v8M17.5 8v8M3.5 10v4M20.5 10v4M6.5 12h11"/></svg>
+      <span>Rutinas</span>
+    </a>
+    <a href="#/entreno" data-tab="entreno" class="tab-main">
+      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+      <span>Entrenar</span>
+    </a>
+    <a href="#/progreso" data-tab="progreso">
+      <svg viewBox="0 0 24 24"><path d="M4 19V5M4 19h16"/><path d="M8 15l3.5-4.5 3 3L20 7"/></svg>
+      <span>Progreso</span>
+    </a>
+    <a href="#/comida" data-tab="comida">
+      <svg viewBox="0 0 24 24"><path d="M6 3v8a2.5 2.5 0 0 0 5 0V3M8.5 11v10"/><path d="M17 3c-1.5 1.5-2 3.5-2 5.5s.7 3 2 3.5v9"/></svg>
+      <span>Comida</span>
+    </a>
+  </nav>
+</div>
+
+<div id="boot" class="boot">
+  <div class="boot-glow"></div>
+  <div class="boot-mark">FORJA<span>.</span></div>
+</div>
+
+<div id="sheet-root"></div>
+<div id="toast-root" class="toast-root"></div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

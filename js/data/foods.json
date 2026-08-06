@@ -1,0 +1,105 @@
+{
+  "nota": "Macros por 100 g de producto tal como se come (crudo salvo indicación). Valores redondeados de tablas de composición habituales; sirven para planificar, no para un laboratorio.",
+  "alimentos": [
+    { "id": "pollo",        "nombre": "Pechuga de pollo",        "kcal": 120, "p": 23.0, "c": 0.0,  "g": 2.6,  "rol": "proteina", "unidad": "g" },
+    { "id": "pavo",         "nombre": "Pechuga de pavo",         "kcal": 110, "p": 24.0, "c": 0.5,  "g": 1.2,  "rol": "proteina", "unidad": "g" },
+    { "id": "ternera",      "nombre": "Ternera magra",           "kcal": 150, "p": 21.5, "c": 0.0,  "g": 7.0,  "rol": "proteina", "unidad": "g" },
+    { "id": "cerdo_lomo",   "nombre": "Lomo de cerdo",           "kcal": 143, "p": 21.0, "c": 0.0,  "g": 6.0,  "rol": "proteina", "unidad": "g" },
+    { "id": "merluza",      "nombre": "Merluza",                 "kcal": 72,  "p": 16.0, "c": 0.0,  "g": 0.8,  "rol": "proteina", "unidad": "g" },
+    { "id": "salmon",       "nombre": "Salmón",                  "kcal": 208, "p": 20.0, "c": 0.0,  "g": 13.5, "rol": "proteina", "unidad": "g" },
+    { "id": "atun_lata",    "nombre": "Atún al natural (lata)",  "kcal": 108, "p": 24.0, "c": 0.0,  "g": 1.0,  "rol": "proteina", "unidad": "g" },
+    { "id": "huevo",        "nombre": "Huevo entero",            "kcal": 143, "p": 12.6, "c": 0.7,  "g": 9.5,  "rol": "proteina", "unidad": "g", "porcion": 55, "porcionNombre": "huevo" },
+    { "id": "clara",        "nombre": "Clara de huevo",          "kcal": 52,  "p": 11.0, "c": 0.7,  "g": 0.2,  "rol": "proteina", "unidad": "g" },
+    { "id": "queso_fresco", "nombre": "Queso fresco batido 0 %", "kcal": 47,  "p": 8.0,  "c": 4.0,  "g": 0.2,  "rol": "proteina", "unidad": "g" },
+    { "id": "yogur_griego", "nombre": "Yogur griego 0 %",        "kcal": 57,  "p": 9.0,  "c": 4.0,  "g": 0.4,  "rol": "proteina", "unidad": "g" },
+    { "id": "requeson",     "nombre": "Requesón",                "kcal": 98,  "p": 11.0, "c": 3.4,  "g": 4.3,  "rol": "proteina", "unidad": "g" },
+    { "id": "leche",        "nombre": "Leche semidesnatada",     "kcal": 46,  "p": 3.3,  "c": 4.8,  "g": 1.6,  "rol": "proteina", "unidad": "ml" },
+    { "id": "proteina_wp",  "nombre": "Proteína de suero",       "kcal": 380, "p": 78.0, "c": 6.0,  "g": 5.0,  "rol": "proteina", "unidad": "g", "porcion": 30, "porcionNombre": "cacito" },
+    { "id": "tofu",         "nombre": "Tofu firme",              "kcal": 144, "p": 15.0, "c": 2.0,  "g": 8.0,  "rol": "proteina", "unidad": "g" },
+    { "id": "seitan",       "nombre": "Seitán",                  "kcal": 120, "p": 24.0, "c": 4.0,  "g": 1.0,  "rol": "proteina", "unidad": "g" },
+    { "id": "gambas",       "nombre": "Gambas",                  "kcal": 85,  "p": 18.0, "c": 0.5,  "g": 1.0,  "rol": "proteina", "unidad": "g" },
+
+    { "id": "arroz",        "nombre": "Arroz blanco (crudo)",    "kcal": 355, "p": 7.0,  "c": 78.0, "g": 0.9,  "rol": "carbo", "unidad": "g" },
+    { "id": "arroz_int",    "nombre": "Arroz integral (crudo)",  "kcal": 350, "p": 8.0,  "c": 74.0, "g": 2.5,  "rol": "carbo", "unidad": "g" },
+    { "id": "pasta",        "nombre": "Pasta (cruda)",           "kcal": 358, "p": 12.5, "c": 71.0, "g": 1.5,  "rol": "carbo", "unidad": "g" },
+    { "id": "patata",       "nombre": "Patata",                  "kcal": 80,  "p": 2.0,  "c": 17.0, "g": 0.1,  "rol": "carbo", "unidad": "g" },
+    { "id": "boniato",      "nombre": "Boniato",                 "kcal": 86,  "p": 1.6,  "c": 20.0, "g": 0.1,  "rol": "carbo", "unidad": "g" },
+    { "id": "avena",        "nombre": "Copos de avena",          "kcal": 375, "p": 13.0, "c": 60.0, "g": 7.0,  "rol": "carbo", "unidad": "g" },
+    { "id": "pan_integral", "nombre": "Pan integral",            "kcal": 247, "p": 9.0,  "c": 41.0, "g": 3.5,  "rol": "carbo", "unidad": "g", "porcion": 40, "porcionNombre": "rebanada" },
+    { "id": "tortitas_maiz","nombre": "Tortitas de maíz",        "kcal": 387, "p": 8.0,  "c": 81.0, "g": 2.0,  "rol": "carbo", "unidad": "g" },
+    { "id": "lentejas",     "nombre": "Lentejas (crudas)",       "kcal": 336, "p": 24.0, "c": 49.0, "g": 1.5,  "rol": "carbo", "unidad": "g" },
+    { "id": "garbanzos",    "nombre": "Garbanzos (crudos)",      "kcal": 364, "p": 19.0, "c": 55.0, "g": 6.0,  "rol": "carbo", "unidad": "g" },
+    { "id": "quinoa",       "nombre": "Quinoa (cruda)",          "kcal": 368, "p": 14.0, "c": 58.0, "g": 6.0,  "rol": "carbo", "unidad": "g" },
+    { "id": "cuscus",       "nombre": "Cuscús (crudo)",          "kcal": 376, "p": 13.0, "c": 72.0, "g": 0.6,  "rol": "carbo", "unidad": "g" },
+    { "id": "platano",      "nombre": "Plátano",                 "kcal": 89,  "p": 1.1,  "c": 20.0, "g": 0.3,  "rol": "carbo", "unidad": "g", "porcion": 120, "porcionNombre": "plátano" },
+    { "id": "manzana",      "nombre": "Manzana",                 "kcal": 52,  "p": 0.3,  "c": 12.0, "g": 0.2,  "rol": "carbo", "unidad": "g", "porcion": 180, "porcionNombre": "manzana" },
+    { "id": "naranja",      "nombre": "Naranja",                 "kcal": 47,  "p": 0.9,  "c": 9.0,  "g": 0.1,  "rol": "carbo", "unidad": "g", "porcion": 180, "porcionNombre": "naranja" },
+    { "id": "frutos_rojos", "nombre": "Frutos rojos",            "kcal": 45,  "p": 1.0,  "c": 8.0,  "g": 0.4,  "rol": "carbo", "unidad": "g" },
+    { "id": "miel",         "nombre": "Miel",                    "kcal": 304, "p": 0.3,  "c": 82.0, "g": 0.0,  "rol": "carbo", "unidad": "g" },
+
+    { "id": "aceite_oliva", "nombre": "Aceite de oliva",         "kcal": 884, "p": 0.0,  "c": 0.0,  "g": 100.0, "rol": "grasa", "unidad": "g", "porcion": 10, "porcionNombre": "cucharada" },
+    { "id": "aguacate",     "nombre": "Aguacate",                "kcal": 160, "p": 2.0,  "c": 2.0,  "g": 15.0,  "rol": "grasa", "unidad": "g" },
+    { "id": "almendras",    "nombre": "Almendras",               "kcal": 579, "p": 21.0, "c": 9.0,  "g": 50.0,  "rol": "grasa", "unidad": "g" },
+    { "id": "nueces",       "nombre": "Nueces",                  "kcal": 654, "p": 15.0, "c": 7.0,  "g": 65.0,  "rol": "grasa", "unidad": "g" },
+    { "id": "cacahuete_cr", "nombre": "Crema de cacahuete",      "kcal": 588, "p": 25.0, "c": 12.0, "g": 50.0,  "rol": "grasa", "unidad": "g" },
+    { "id": "queso_curado", "nombre": "Queso curado",            "kcal": 390, "p": 25.0, "c": 1.5,  "g": 32.0,  "rol": "grasa", "unidad": "g" },
+    { "id": "chocolate_85", "nombre": "Chocolate 85 %",          "kcal": 592, "p": 10.0, "c": 19.0, "g": 50.0,  "rol": "grasa", "unidad": "g" },
+
+    { "id": "brocoli",      "nombre": "Brócoli",                 "kcal": 34,  "p": 2.8,  "c": 4.0,  "g": 0.4,  "rol": "verdura", "unidad": "g" },
+    { "id": "espinacas",    "nombre": "Espinacas",               "kcal": 23,  "p": 2.9,  "c": 1.4,  "g": 0.4,  "rol": "verdura", "unidad": "g" },
+    { "id": "ensalada",     "nombre": "Ensalada variada",        "kcal": 20,  "p": 1.2,  "c": 2.5,  "g": 0.2,  "rol": "verdura", "unidad": "g" },
+    { "id": "pimiento",     "nombre": "Pimiento",                "kcal": 27,  "p": 1.0,  "c": 5.0,  "g": 0.2,  "rol": "verdura", "unidad": "g" },
+    { "id": "calabacin",    "nombre": "Calabacín",               "kcal": 17,  "p": 1.2,  "c": 2.0,  "g": 0.3,  "rol": "verdura", "unidad": "g" },
+    { "id": "tomate",       "nombre": "Tomate",                  "kcal": 18,  "p": 0.9,  "c": 3.0,  "g": 0.2,  "rol": "verdura", "unidad": "g" },
+    { "id": "champinon",    "nombre": "Champiñones",             "kcal": 22,  "p": 3.1,  "c": 1.0,  "g": 0.3,  "rol": "verdura", "unidad": "g" },
+    { "id": "judias_verdes","nombre": "Judías verdes",           "kcal": 31,  "p": 1.8,  "c": 4.0,  "g": 0.1,  "rol": "verdura", "unidad": "g" }
+  ],
+
+  "plantillas": [
+    {
+      "id": "desayuno",
+      "nombre": "Desayuno",
+      "hora": "08:00",
+      "proteina": ["yogur_griego", "clara", "proteina_wp", "queso_fresco"],
+      "carbo": ["avena", "pan_integral", "platano", "tortitas_maiz"],
+      "grasa": ["almendras", "cacahuete_cr", "nueces"],
+      "extra": []
+    },
+    {
+      "id": "media_manana",
+      "nombre": "Media mañana",
+      "hora": "11:30",
+      "proteina": ["yogur_griego", "atun_lata", "huevo", "queso_fresco"],
+      "carbo": ["platano", "pan_integral", "manzana", "naranja"],
+      "grasa": ["almendras", "nueces"],
+      "extra": []
+    },
+    {
+      "id": "comida",
+      "nombre": "Comida",
+      "hora": "14:30",
+      "proteina": ["pollo", "ternera", "merluza", "lentejas", "tofu"],
+      "carbo": ["arroz", "pasta", "patata", "quinoa"],
+      "grasa": ["aceite_oliva", "aguacate"],
+      "extra": ["ensalada", "brocoli", "pimiento"]
+    },
+    {
+      "id": "merienda",
+      "nombre": "Merienda / pre-entreno",
+      "hora": "17:30",
+      "proteina": ["proteina_wp", "yogur_griego", "atun_lata"],
+      "carbo": ["platano", "tortitas_maiz", "avena", "pan_integral"],
+      "grasa": ["cacahuete_cr", "chocolate_85"],
+      "extra": []
+    },
+    {
+      "id": "cena",
+      "nombre": "Cena",
+      "hora": "21:30",
+      "proteina": ["salmon", "pavo", "huevo", "merluza", "seitan"],
+      "carbo": ["patata", "boniato", "cuscus", "pan_integral"],
+      "grasa": ["aceite_oliva", "aguacate", "queso_curado"],
+      "extra": ["espinacas", "calabacin", "judias_verdes", "champinon"]
+    }
+  ]
+}
