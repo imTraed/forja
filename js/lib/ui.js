@@ -39,15 +39,29 @@ export function acts(root, handlers) {
   });
 }
 
-let toastTimer;
+const MAX_AVISOS = 3;
+
+/** Cada aviso lleva su propio temporizador: si compartieran uno, el nuevo
+ *  cancelaría el cierre del anterior y se quedarían apilados en pantalla. */
+function programarCierre(el) {
+  clearTimeout(el.cierre);
+  el.cierre = setTimeout(() => el.remove(), 2600);
+}
+
 export function toast(msg, kind = '') {
   const root = $('#toast-root');
+
+  // Repetir el mismo aviso no lo duplica: solo le da más tiempo en pantalla.
+  const repetido = [...root.children].find((n) => n.textContent === msg);
+  if (repetido) return programarCierre(repetido);
+
+  while (root.children.length >= MAX_AVISOS) root.firstElementChild.remove();
+
   const el = document.createElement('div');
   el.className = `toast ${kind}`;
   el.textContent = msg;
   root.appendChild(el);
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.remove(), 2600);
+  programarCierre(el);
 }
 
 /**

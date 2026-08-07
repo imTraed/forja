@@ -1,5 +1,5 @@
 /* Rutinas: generador automático y constructor manual sobre el catálogo. */
-import { S, guardar, uid, guardarRutina, borrarRutina, rutinaActiva } from '../store.js';
+import { S, guardar, uid, guardarRutina, borrarRutina, rutinaActiva, MAX_SERIES } from '../store.js';
 import { acts, on, esc, toast, sheet, confirmar } from '../lib/ui.js';
 import { cargar as cargarCatalogo, buscar, gifDe, ejercicio } from '../data/catalog.js';
 import { tTarget, tEquipo, equiposDisponibles, CATEGORIAS_EQUIPO, grupoDe } from '../data/i18n.js';
@@ -228,7 +228,13 @@ function editorDia(rid, did) {
   on(ctx.view, 'change', (e) => {
     const el = e.target.closest('[data-campo]');
     if (!el) return;
-    const v = Math.max(1, Number(el.value) || 1);
+    // Las series se topan igual que en el entreno; las reps, en algo sensato.
+    const bruto = Math.max(1, Number(el.value) || 1);
+    const v = el.dataset.campo === 'series' ? Math.min(MAX_SERIES, bruto) : Math.min(50, bruto);
+    if (v !== bruto) {
+      el.value = v;
+      toast(el.dataset.campo === 'series' ? `Máximo ${MAX_SERIES} series` : 'Máximo 50 reps', 'bad');
+    }
     d.ejercicios[Number(el.dataset.i)][el.dataset.campo] = v;
     guardar();
   });

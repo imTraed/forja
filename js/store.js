@@ -10,6 +10,12 @@ const VERSION = 1;
 
 export const SEMANAS_CALIBRACION = 2;
 
+/**
+ * Tope duro de series por ejercicio. Nadie hace 30 series de nada: sin corte,
+ * cada toque de más en "Serie hecha" añade otra fila y la sesión crece sin fin.
+ */
+export const MAX_SERIES = 10;
+
 function inicial() {
   return {
     v: VERSION,

@@ -4,7 +4,7 @@
  */
 import {
   S, guardar, uid, rutinaActiva, siguienteDia, historial, e1rm, enCalibracion,
-  registrarPeso, pesoActual,
+  registrarPeso, pesoActual, MAX_SERIES,
 } from '../store.js';
 import {
   acts, esc, toast, sheet, confirmar, num, kg, mmss, duracion, hoyISO, diasEntre, $,
@@ -377,7 +377,8 @@ function pintarSesionDetallada() {
       <button class="btn ${todasHechas(ej) ? 'primary' : 'ghost'} grow" data-act="siguiente"
               ${s.idx === s.ejercicios.length - 1 ? 'disabled' : ''}>Siguiente</button>
     </div>
-    <button class="btn quiet block mt" data-act="anadirSerie">Añadir una serie más</button>
+    ${ej.series < MAX_SERIES && ej.sets.length < MAX_SERIES
+    ? '<button class="btn quiet block mt" data-act="anadirSerie">Añadir una serie más</button>' : ''}
 
     <div id="timer-slot"></div>`;
 
@@ -390,7 +391,7 @@ const todasHechas = (ej) => ej.sets.filter((x) => x.reps > 0).length >= ej.serie
 /** Filas de series: hechas arriba, la siguiente con los campos listos. */
 function filasDeSeries(ej) {
   const inc = incrementoDe(ej.equipment);
-  const n = Math.max(ej.series, ej.sets.length + 1);
+  const n = Math.min(MAX_SERIES, Math.max(ej.series, ej.sets.length + 1));
   const filas = [];
 
   for (let i = 0; i < n; i++) {
@@ -419,7 +420,10 @@ function filasDeSeries(ej) {
         <div class="body"><b class="mono">${previsto != null ? `${num(previsto)} kg × ${ej.sug.reps}` : `— × ${ej.sug.reps}`}</b></div>
       </div>`);
   }
-  return `<div class="stack" style="gap:8px;margin-top:16px">${filas.join('')}</div>`;
+  const tope = ej.sets.length >= MAX_SERIES
+    ? `<p class="tiny faint center" style="margin:4px 0 0">Máximo ${MAX_SERIES} series por ejercicio. Pasa al siguiente.</p>`
+    : '';
+  return `<div class="stack" style="gap:8px;margin-top:16px">${filas.join('')}</div>${tope}`;
 }
 
 function filaActiva(ej, i, inc) {
@@ -485,6 +489,9 @@ const MANEJADORES = {
   guardarSerie: () => {
     const s = S.sesionActiva;
     const ej = s.ejercicios[s.idx];
+    if (ej.sets.length >= MAX_SERIES) {
+      return toast(`Máximo ${MAX_SERIES} series por ejercicio`, 'bad');
+    }
     const peso = Number($('#in-peso').value);
     const reps = Number($('#in-reps').value);
     if (!reps || reps < 1) return toast('¿Cuántas reps has hecho?', 'bad');
@@ -500,9 +507,10 @@ const MANEJADORES = {
 
     if (previo && nuevo > previo.e1rmMax) toast(`¡Récord en ${ej.nombre}!`, 'ok');
 
-    if (todasHechas(ej) && s.idx < s.ejercicios.length - 1) {
+    // El aviso solo salta al cerrar la última serie prevista, no en cada extra.
+    if (ej.sets.length === ej.series && s.idx < s.ejercicios.length - 1) {
       toast('Ejercicio completado', 'ok');
-    } else {
+    } else if (ej.sets.length < MAX_SERIES) {
       timer.arrancar(ej.descanso);
     }
     pintarSesion();
@@ -512,7 +520,9 @@ const MANEJADORES = {
 
   anadirSerie: () => {
     const s = S.sesionActiva;
-    s.ejercicios[s.idx].series += 1;
+    const ej = s.ejercicios[s.idx];
+    if (ej.series >= MAX_SERIES) return toast(`Máximo ${MAX_SERIES} series por ejercicio`, 'bad');
+    ej.series += 1;
     guardar();
     pintarSesion();
   },
