@@ -55,6 +55,35 @@ export let S = (() => {
 const oyentes = new Set();
 export const alCambiar = (fn) => { oyentes.add(fn); return () => oyentes.delete(fn); };
 
+export async function cargar() {
+  const d = localStorage.getItem('gym_store');
+  if (d) Object.assign(S, JSON.parse(d));
+  
+  // Migración: ajustar todas las rutinas existentes a 12-15 reps
+  if (S.rutinas) {
+    let modificado = false;
+    S.rutinas.forEach(r => r.dias.forEach(dia => dia.ejercicios.forEach(e => {
+      if (e.repMin !== 12 || e.repMax !== 15) {
+        e.repMin = 12;
+        e.repMax = 15;
+        modificado = true;
+      }
+    })));
+    
+    if (S.sesionActiva) {
+      S.sesionActiva.ejercicios.forEach(e => {
+        if (e.repMin !== 12 || e.repMax !== 15) {
+          e.repMin = 12;
+          e.repMax = 15;
+          modificado = true;
+        }
+      });
+    }
+
+    if (modificado) guardar();
+  }
+}
+
 export function guardar() {
   try {
     localStorage.setItem(CLAVE, JSON.stringify(S));

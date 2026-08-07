@@ -78,7 +78,7 @@ export function sugerencia(cfg, hist) {
       estado: 'primera',
       motivo: corporal
         ? `Primera vez. Haz las series hasta cerca del fallo y anota las reps reales.`
-        : `Primera vez. Busca un peso con el que llegues a ${cfg.repMin}-${cfg.repMax} dejándote 2 reps en la recámara, y anótalo.`,
+        : `Primera vez. Busca un peso con el que llegues a ${cfg.repMin}-${cfg.repMax} dejándote 2 reps de sobra (las que sentías que podías hacer pero no hiciste), y anótalo.`,
     };
   }
 

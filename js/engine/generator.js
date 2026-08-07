@@ -66,6 +66,65 @@ export function generarRutina({ dias = 3, categorias = [] } = {}) {
   };
 }
 
+const MAPA_MUSCULOS = {
+  pecho: ['empujeHorizontal', 'empujeInclinado', 'aperturaPecho'],
+  espalda: ['traccionVertical', 'traccionHorizontal'],
+  pierna: ['sentadilla', 'bisagra', 'zancada', 'curlFemoral', 'gemelo'],
+  hombro: ['empujeVertical', 'lateral', 'deltoidePosterior'],
+  brazos: ['biceps', 'triceps'],
+  core: ['core']
+};
+
+/**
+ * Genera una rutina personalizada basada en los músculos seleccionados día a día.
+ * @param {string[][]} seleccion Array de 7 días, con los IDs de músculos seleccionados por día.
+ * @param {string[]} categorias  Categorías de material elegidas.
+ */
+export function generarRutinaCustom(seleccion, categorias = []) {
+  const equipos = equiposDisponibles(categorias);
+  const diasSemanales = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+  
+  const diasGenerados = [];
+  
+  seleccion.forEach((musculos, idx) => {
+    if (musculos.length === 0) return; // Día de descanso
+    
+    let patronesDelDia = [];
+    musculos.forEach(m => {
+      if (MAPA_MUSCULOS[m]) patronesDelDia.push(...MAPA_MUSCULOS[m]);
+    });
+    
+    // Evitar que sea un día gigante, limitamos a un poco si hace falta,
+    // o simplemente tomamos los patrones y resolvemos.
+    const usados = new Set();
+    const ejercicios = [];
+    
+    for (const clave of patronesDelDia) {
+      const patron = PATRONES[clave];
+      if (!patron) continue;
+      const ex = resolverPatron(patron, equipos, usados);
+      if (!ex) continue;
+      usados.add(ex.id);
+      ejercicios.push(configDeEjercicio(ex, patron));
+    }
+    
+    diasGenerados.push({
+      id: uid(),
+      nombre: diasSemanales[idx],
+      ejercicios
+    });
+  });
+
+  return {
+    id: uid(),
+    nombre: 'Tu rutina habitual',
+    descripcion: 'Generada a partir de tu división muscular actual.',
+    diasSemana: diasGenerados.length,
+    creada: new Date().toISOString(),
+    dias: diasGenerados,
+  };
+}
+
 /** Rutina vacía para montarla a mano. */
 export function rutinaVacia(nombre = 'Mi rutina') {
   return {

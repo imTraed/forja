@@ -109,7 +109,7 @@ export function generarInformeCalibracion() {
   }
 
   const sinRir = S.sesiones.some((s) => s.ejercicios.some((e) => (e.sets || []).some((x) => x.reps > 0 && x.rir == null)));
-  if (sinRir) notas.push('Hay series sin marcar el esfuerzo (RIR). Marcarlo es lo que me permite saber si te sobra peso o te falta.');
+  if (sinRir) notas.push('Hay series sin marcar el esfuerzo (reps de sobra). Marcarlo es lo que me permite saber si te sobra peso o te falta.');
 
   const informe = {
     id: `cal-${Date.now()}`,
@@ -184,66 +184,81 @@ export function informeSemanal(sem = semanaPrograma() - 1) {
    Consejo corto para la pantalla de Hoy
    ========================================================================== */
 
-export function consejoDelDia() {
+export function consejosDelDia() {
   const sem = semanaPrograma();
+  const consejos = [];
 
   if (!S.sesiones.length) {
-    return {
+    consejos.push({
       tono: 'accent',
       titulo: 'Empezamos por medir',
-      texto: 'Las dos primeras semanas no te voy a subir nada: necesito ver con qué pesos te mueves y cuántas reps aguantas de verdad. Entrena normal y anota cada serie con su esfuerzo.',
-    };
-  }
-
-  if (enCalibracion()) {
+      texto: 'Las dos primeras semanas no te voy a subir nada: necesito ver con qué pesos te mueves y cuántas reps aguantas de verdad.',
+    });
+  } else if (enCalibracion()) {
     const restan = (SEMANAS_CALIBRACION - sem + 1);
-    return {
+    consejos.push({
       tono: 'accent',
       titulo: `Calibración · semana ${Math.max(1, sem)} de ${SEMANAS_CALIBRACION}`,
-      texto: `Queda${restan === 1 ? '' : 'n'} ${restan} semana${restan === 1 ? '' : 's'} de medición. Mantén los pesos y apunta el RIR de cada serie: con eso decido cuánto subirte a partir de la semana ${SEMANAS_CALIBRACION + 1}.`,
-    };
+      texto: `Queda${restan === 1 ? '' : 'n'} ${restan} semana${restan === 1 ? '' : 's'} de medición. Mantén los pesos y apunta las reps de sobra.`,
+    });
+  } else {
+    consejos.push({
+      tono: 'accent',
+      titulo: `Semana ${sem}`,
+      texto: 'Progresión normal: cierra el rango de reps en todas las series y te subo el peso a la siguiente.',
+    });
   }
 
   const ultimo = S.sesiones.at(-1);
   const diasParado = ultimo ? diasEntre(ultimo.fecha, hoyISO()) : 99;
   if (diasParado >= 7) {
-    return {
+    consejos.push({
       tono: 'warn',
       titulo: `${diasParado} días sin entrenar`,
       texto: 'Vuelve con el peso de la última sesión, no con el que te gustaría. Una sesión conservadora hoy vale más que una heroica que te deje agujetas tres días.',
-    };
+    });
   }
 
   const previa = informeSemanal(sem - 1);
   if (previa?.avisos.length) {
     const a = previa.avisos[0];
-    return { tono: a.tono, titulo: `Repaso de la semana ${previa.sem}`, texto: a.texto };
+    consejos.push({ tono: a.tono, titulo: `Repaso de la semana ${previa.sem}`, texto: a.texto });
   }
 
   const t = tendenciaPeso();
   const objetivo = S.perfil?.objetivo;
   if (t && objetivo && Math.abs(t.porSemana) < 0.1) {
-    return {
+    consejos.push({
       tono: 'info',
       titulo: 'Tu peso lleva plano',
       texto: objetivo === 'definir'
         ? 'Si quieres bajar y la báscula no se mueve, el problema está en la comida, no en el entreno. Mira la pestaña de Comida: te ajusto las calorías.'
         : 'Para ganar músculo la báscula tiene que subir poco a poco. Si lleva plana, sube algo las calorías.',
-    };
+    });
   }
 
   if (previa?.subidas.length) {
     const s = previa.subidas[0];
-    return {
+    consejos.push({
       tono: 'ok',
       titulo: 'Vas subiendo',
       texto: `${s.nombre} ha subido un ${num(s.pct)} % en las últimas sesiones. Sigue con la misma progresión, funciona.`,
-    };
+    });
   }
 
-  return {
-    tono: 'accent',
-    titulo: `Semana ${sem}`,
-    texto: 'Progresión normal: cierra el rango de reps en todas las series y te subo el peso a la siguiente.',
-  };
+  // Rellenar con consejos generales si hay pocos
+  if (consejos.length < 3) {
+    consejos.push({
+      tono: 'accent',
+      titulo: 'Recuerda el descanso',
+      texto: 'El músculo crece mientras descansas, no mientras entrenas. Asegúrate de dormir 7-8 horas.'
+    });
+    consejos.push({
+      tono: 'accent',
+      titulo: 'La constancia es la clave',
+      texto: 'Más vale un entrenamiento regular al 80% que uno perfecto al 100% pero que dejas a las dos semanas.'
+    });
+  }
+
+  return consejos;
 }

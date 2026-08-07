@@ -2,7 +2,12 @@
  * Service worker: la app entera queda en caché para que abra sin datos en el
  * gimnasio. Las animaciones vienen de GitHub y se guardan según se ven.
  */
-const SHELL = 'forja-shell-v1';
+/**
+ * Al tocar cualquier archivo de la app hay que subir este número. Si no, el
+ * móvil sigue abriendo la versión que ya tenía guardada y los cambios no se
+ * ven nunca.
+ */
+const SHELL = 'forja-shell-v3';
 const MEDIA = 'forja-media-v1';
 const MEDIA_HOST = 'raw.githubusercontent.com';
 
@@ -29,7 +34,8 @@ const ARCHIVOS = [
   'js/views/hoy.js',
   'js/views/rutinas.js',
   'js/views/entreno.js',
-  'js/views/progreso.js',
+  'js/views/wizard.js',
+  'js/views/yo.js',
   'js/views/comida.js',
   'js/views/ajustes.js',
 ];

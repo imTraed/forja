@@ -13,11 +13,11 @@
   --surface-flat: #191919;
   --surface-hi: #202020;
 
-  --accent: #ffd700;
-  --accent-2: #ffc700;
-  --accent-ink: #000;
-  --accent-soft: rgba(255, 215, 0, 0.12);
-  --accent-line: rgba(255, 215, 0, 0.22);
+  --accent: #ef4444;
+  --accent-2: #dc2626;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(239, 68, 68, 0.12);
+  --accent-line: rgba(239, 68, 68, 0.22);
 
   --ok: #4ade80;
   --warn: #fbbf24;
@@ -88,7 +88,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
   font-weight: 900;
   letter-spacing: 2.5px;
   color: var(--accent);
-  text-shadow: 0 0 22px rgba(255, 215, 0, 0.28);
+  text-shadow: 0 0 22px rgba(239, 68, 68, 0.28);
 }
 .brand span { color: var(--text); }
 .topbar-right { display: flex; align-items: center; gap: 8px; }
@@ -134,7 +134,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 }
 .tabbar a svg { width: 23px; height: 23px; }
 .tabbar a.active { color: var(--accent); }
-.tabbar a.active svg { filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.5)); }
+.tabbar a.active svg { filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.5)); }
 .tabbar .tab-main svg {
   width: 26px;
   height: 26px;
@@ -146,7 +146,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
   box-sizing: content-box;
   margin-top: -2px;
 }
-.tabbar .tab-main.active svg { box-shadow: 0 0 18px rgba(255, 215, 0, 0.45); }
+.tabbar .tab-main.active svg { box-shadow: 0 0 18px rgba(239, 68, 68, 0.45); }
 
 /* ---------- Cards ---------- */
 .card {
@@ -209,7 +209,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
   background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
   color: var(--accent-ink);
   border-color: transparent;
-  box-shadow: 0 8px 24px rgba(255, 215, 0, 0.18);
+  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.18);
 }
 .btn.ghost { background: transparent; border-color: var(--accent-line); color: var(--accent); }
 .btn.quiet { background: transparent; border-color: var(--line); color: var(--muted); }
@@ -375,7 +375,7 @@ select.input {
   height: 100%;
   border-radius: 999px;
   background: linear-gradient(90deg, var(--accent), var(--accent-2));
-  box-shadow: 0 0 12px rgba(255, 215, 0, 0.4);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
   transition: width 0.45s ease-out;
 }
 .bar.ok > i { background: var(--ok); box-shadow: none; }
@@ -400,10 +400,17 @@ select.input {
   width: 52px;
   height: 52px;
   border-radius: 12px;
-  background: #fff;
+  background: transparent;
   object-fit: cover;
 }
 .list-item .thumb.ph { background: #222; }
+
+/* Hacer que los GIFs con fondo blanco se mezclen con el tema oscuro */
+img[src*=".gif"] {
+  filter: invert(1) hue-rotate(180deg) brightness(0.9);
+  mix-blend-mode: screen;
+  background: transparent !important;
+}
 .list-item .body { flex: 1; min-width: 0; }
 .list-item .body b { display: block; font-size: 0.92rem; font-weight: 700; }
 .list-item .body small { color: var(--faint); font-size: 0.74rem; }
@@ -513,7 +520,7 @@ select.input {
   position: absolute;
   width: 420px;
   height: 420px;
-  background: radial-gradient(circle, rgba(255, 215, 0, 0.16) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.16) 0%, transparent 70%);
   animation: pulse 3s ease-in-out infinite;
 }
 @keyframes pulse {
@@ -526,7 +533,7 @@ select.input {
   font-weight: 900;
   letter-spacing: 5px;
   color: var(--accent);
-  text-shadow: 0 0 30px rgba(255, 215, 0, 0.4);
+  text-shadow: 0 0 30px rgba(239, 68, 68, 0.4);
 }
 .boot-mark span { color: #fff; }
 

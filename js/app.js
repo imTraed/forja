@@ -7,11 +7,12 @@ import * as onboarding from './views/onboarding.js';
 import * as hoy from './views/hoy.js';
 import * as rutinas from './views/rutinas.js';
 import * as entreno from './views/entreno.js';
-import * as progreso from './views/progreso.js';
+import * as yo from './views/yo.js';
 import * as comida from './views/comida.js';
 import * as ajustes from './views/ajustes.js';
+import * as wizard from './views/wizard.js';
 
-const VISTAS = { hoy, rutinas, entreno, progreso, comida, ajustes };
+const VISTAS = { hoy, rutinas, entreno, yo, comida, ajustes, wizard };
 const view = $('#view');
 
 export function ir(ruta, reemplazar = false) {
@@ -35,11 +36,13 @@ async function pintar() {
     vistaActual?.salir?.();
     vistaActual = onboarding;
     $('#tabbar').hidden = true;
+    $('#topbar').hidden = true;
     await onboarding.render({ view, ir, params: [] });
     marcarTab(null);
     return;
   }
   $('#tabbar').hidden = false;
+  $('#topbar').hidden = false;
 
   const vista = VISTAS[nombre] || hoy;
   if (vistaActual && vistaActual !== vista) vistaActual.salir?.();
@@ -74,7 +77,18 @@ async function arrancar() {
 
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     try {
-      await navigator.serviceWorker.register('sw.js');
+      // Si ya había una versión controlando la página, cuando entre una nueva
+      // hay que recargar: si no, te quedas usando la app antigua y los cambios
+      // no aparecen hasta que borras los datos del navegador a mano.
+      const teniaControl = !!navigator.serviceWorker.controller;
+      let recargando = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!teniaControl || recargando) return;
+        recargando = true;
+        location.reload();
+      });
+      const reg = await navigator.serviceWorker.register('sw.js');
+      reg.update();
     } catch { /* sin service worker la app sigue funcionando, pero sin offline */ }
   }
 }

@@ -1,8 +1,8 @@
-/* Progreso: gráficas propias en SVG, volumen semanal e informes del entrenador. */
+/* Vista "Yo": Progreso, perfil, ajustes y actualización de datos personales. */
 import {
-  S, semanaPrograma, historial, ejerciciosEntrenados, tendenciaPeso, sesionesDeSemana,
+  S, semanaPrograma, historial, ejerciciosEntrenados, tendenciaPeso, sesionesDeSemana, pesoActual, registrarPeso, guardar
 } from '../store.js';
-import { acts, esc, sheet, num, kg, fechaCorta, duracion } from '../lib/ui.js';
+import { acts, esc, sheet, num, kg, fechaCorta, duracion, toast, hoyISO } from '../lib/ui.js';
 import {
   volumenSemanal, tonelajeSemanal, informeSemanal, informeCalibracionDisponible,
   generarInformeCalibracion, gruposFlojos,
@@ -20,43 +20,115 @@ export async function render(c) {
   const sem = semanaPrograma();
   const ejercicios = ejerciciosEntrenados();
 
-  if (!S.sesiones.length) {
-    ctx.view.innerHTML = `
-      <h2 class="page-title">Progreso</h2>
-      <div class="empty">
-        <h3>Aún no hay nada que enseñar</h3>
-        <p class="small">Cuando termines tu primera sesión aparecerán aquí tus 1RM estimados, el volumen por músculo y la evolución del peso.</p>
-      </div>`;
-    return;
-  }
-
   ctx.view.innerHTML = `
-    <h2 class="page-title">Progreso</h2>
+    <h2 class="page-title">Tu espacio</h2>
     <p class="page-sub">Semana ${sem} del programa · ${S.sesiones.length} sesiones registradas.</p>
 
-    ${informeCalibracionDisponible() ? `
-      <button class="card accent glow" data-act="generarInforme" style="width:100%;text-align:left">
-        <div class="eyebrow">Pendiente</div>
-        <h3>Generar informe de calibración</h3>
-        <p class="muted small mb0">Ya tengo dos semanas de datos. Toca para ver el resumen y empezar a subir pesos.</p>
-      </button>` : ''}
+    ${bloquePerfil()}
 
-    ${bloqueResumen(sem)}
-    ${bloqueInformes()}
-    ${bloquePeso()}
-    ${bloqueVolumen(sem)}
-    ${bloqueEjercicios(ejercicios)}
-    ${bloqueHistorial()}`;
+    ${S.sesiones.length === 0 ? `
+      <div class="empty mt">
+        <h3>Aún no hay progreso que enseñar</h3>
+        <p class="small">Cuando termines tu primera sesión aparecerán aquí tus 1RM estimados, el volumen por músculo y la evolución del peso.</p>
+      </div>
+    ` : `
+      ${informeCalibracionDisponible() ? `
+        <button class="card accent glow" data-act="generarInforme" style="width:100%;text-align:left">
+          <div class="eyebrow">Pendiente</div>
+          <h3>Generar informe de calibración</h3>
+          <p class="muted small mb0">Ya tengo dos semanas de datos. Toca para ver el resumen y empezar a subir pesos.</p>
+        </button>` : ''}
+
+      ${bloquePeso()}
+      ${bloqueResumen(sem)}
+      ${bloqueInformes()}
+      ${bloqueVolumen(sem)}
+      ${bloqueEjercicios(ejercicios)}
+      ${bloqueHistorial()}
+    `}
+    
+    <button class="btn quiet block mt" data-act="ajustes">Ajustes y respaldo</button>
+    <div style="height:32px"></div>
+  `;
 
   acts(ctx.view, {
     generarInforme: () => { generarInformeCalibracion(); render(ctx); },
     verEjercicio: (n) => detalleEjercicio(n.dataset.id),
     verInforme: (n) => verInforme(n.dataset.id),
     verSesion: (n) => detalleSesion(n.dataset.id),
+    ajustes: () => ctx.ir('/ajustes'),
+    editarPerfil: () => editarPerfil(),
+    guardarPeso: () => {
+      const v = Number(ctx.view.querySelector('#peso-hoy').value);
+      if (!v || v < 25 || v > 300) return toast('Ese peso no cuadra', 'bad');
+      registrarPeso(v);
+      toast('Peso guardado', 'ok');
+      render(ctx);
+    },
   });
 }
 
 /* ---------- Bloques ---------- */
+
+function bloquePerfil() {
+  const p = S.perfil || {};
+  return `
+    <div class="card">
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h3 style="margin:0">Perfil y Objetivos</h3>
+        <button class="btn sm ghost" data-act="editarPerfil">Editar</button>
+      </div>
+      <div class="stat-grid" style="grid-template-columns: 1fr 1fr">
+        <div class="stat"><b>${p.edad || '—'}</b><span>años</span></div>
+        <div class="stat"><b>${p.altura || '—'}</b><span>cm</span></div>
+        <div class="stat" style="grid-column: 1 / -1; margin-top:8px">
+          <b>${p.objetivo === 'volumen' ? 'Ganar masa muscular (Volumen)' : p.objetivo === 'mantenimiento' ? 'Mantener peso' : 'Perder grasa (Definición)'}</b>
+          <span>Objetivo actual</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+function bloquePeso() {
+  const t = tendenciaPeso();
+  const puntos = S.peso.slice(-60);
+  const actual = pesoActual();
+  const hoy = S.peso.find((p) => p.fecha === hoyISO());
+
+  let formPeso = hoy
+    ? `<p class="muted small mb0">Ya te has pesado hoy: <b>${kg(hoy.kg)}</b>. Si te vuelves a pesar, se sustituye.</p>
+       <div class="row mt">
+         <input class="input num grow" id="peso-hoy" type="number" inputmode="decimal" step="0.1" value="${hoy.kg}">
+         <button class="btn ghost" data-act="guardarPeso">Actualizar</button>
+       </div>`
+    : `<p class="muted small">Pésate en ayunas y siempre igual. Lo que importa es la tendencia.</p>
+       <div class="row">
+         <input class="input num grow" id="peso-hoy" type="number" inputmode="decimal" step="0.1" placeholder="${actual ?? 75}">
+         <button class="btn primary" data-act="guardarPeso">Guardar</button>
+       </div>`;
+
+  let graficaPeso = '';
+  if (S.peso.length >= 2) {
+    graficaPeso = `
+      <div style="margin-top:16px; border-top: 1px solid var(--border); padding-top: 16px;">
+        <div class="row" style="justify-content:space-between; margin-bottom:8px">
+          <span class="eyebrow mb0">Evolución</span>
+          ${t ? `<span class="tag ${t.porSemana > 0 ? 'ok' : 'warn'}">${t.porSemana > 0 ? '+' : ''}${num(t.porSemana)} kg/sem</span>` : ''}
+        </div>
+        ${grafica(puntos.map((p) => ({ x: p.fecha, y: p.kg })), 'kg')}
+      </div>`;
+  }
+
+  return `
+    <div class="card">
+      <div class="card-head">
+        <h3>Peso corporal</h3>
+        ${actual ? `<span class="tag">${kg(actual)}</span>` : ''}
+      </div>
+      ${formPeso}
+      ${graficaPeso}
+    </div>`;
+}
 
 function bloqueResumen(sem) {
   const estaSemana = sesionesDeSemana(sem);
@@ -89,20 +161,6 @@ function bloqueInformes() {
           <div class="body"><b>${esc(i.titulo)}</b><small>${fechaCorta(i.fecha)}</small></div>
           <span class="tiny faint">ver</span>
         </button>`).join('')}
-    </div>`;
-}
-
-function bloquePeso() {
-  if (S.peso.length < 2) return '';
-  const t = tendenciaPeso();
-  const puntos = S.peso.slice(-60);
-  return `
-    <div class="card">
-      <div class="card-head">
-        <h3>Peso corporal</h3>
-        ${t ? `<span class="tag ${t.porSemana > 0 ? 'ok' : 'warn'}">${t.porSemana > 0 ? '+' : ''}${num(t.porSemana)} kg/sem</span>` : ''}
-      </div>
-      ${grafica(puntos.map((p) => ({ x: p.fecha, y: p.kg })), 'kg')}
     </div>`;
 }
 
@@ -187,7 +245,6 @@ function bloqueHistorial() {
 
 /* ---------- Gráfica SVG ---------- */
 
-/** Línea simple con área, sin librerías. `puntos` = [{x: etiqueta, y: valor}]. */
 function grafica(puntos, unidad = '') {
   if (puntos.length < 2) return '<p class="faint small">Faltan datos para la gráfica.</p>';
   const W = 320;
@@ -223,6 +280,41 @@ function grafica(puntos, unidad = '') {
 
 /* ---------- Detalles ---------- */
 
+function editarPerfil() {
+  const p = S.perfil || {};
+  const s = sheet({
+    title: 'Editar perfil',
+    body: `
+      <div class="field">
+        <label>Edad (años)</label>
+        <input class="input num" id="ed-edad" type="number" inputmode="numeric" value="${p.edad || ''}">
+      </div>
+      <div class="field mt">
+        <label>Altura (cm)</label>
+        <input class="input num" id="ed-altura" type="number" inputmode="numeric" value="${p.altura || ''}">
+      </div>
+      <div class="field mt">
+        <label>Objetivo</label>
+        <select class="input" id="ed-obj">
+          <option value="volumen" ${p.objetivo === 'volumen' ? 'selected' : ''}>Ganar músculo</option>
+          <option value="mantenimiento" ${p.objetivo === 'mantenimiento' ? 'selected' : ''}>Mantenimiento</option>
+          <option value="definir" ${p.objetivo === 'definir' ? 'selected' : ''}>Perder grasa</option>
+        </select>
+      </div>
+      <button class="btn primary block mt" id="ed-ok" style="margin-top:24px">Guardar cambios</button>`,
+  });
+
+  s.el.querySelector('#ed-ok').onclick = () => {
+    S.perfil.edad = Number(s.el.querySelector('#ed-edad').value) || 0;
+    S.perfil.altura = Number(s.el.querySelector('#ed-altura').value) || 0;
+    S.perfil.objetivo = s.el.querySelector('#ed-obj').value;
+    guardar();
+    s.close();
+    render(ctx);
+    toast('Perfil guardado', 'ok');
+  };
+}
+
 async function detalleEjercicio(exId) {
   await cargarCatalogo();
   const ex = ejercicio(exId);
@@ -239,14 +331,14 @@ async function detalleEjercicio(exId) {
         <div class="stat"><b>${m.progresoPct > 0 ? '+' : ''}${num(m.progresoPct)}%</b><span>desde el inicio</span></div>
       </div>
       ${d.estancado ? `<p class="small" style="color:var(--bad)">Tres sesiones sin mover el 1RM estimado. Toca descarga o cambio de ejercicio.</p>` : ''}
-      ${grafica(h.map((s) => ({ x: s.fecha, y: s.e1rm })), 'kg')}
+      ${grafica(h.map((se) => ({ x: se.fecha, y: se.e1rm })), 'kg')}
       <div class="divider"></div>
       <div class="eyebrow">Sesión a sesión</div>
       <div class="stack" style="gap:7px">
-        ${h.slice().reverse().slice(0, 12).map((s) => `
+        ${h.slice().reverse().slice(0, 12).map((se) => `
           <div class="row small" style="justify-content:space-between">
-            <span class="faint">${fechaCorta(s.fecha)}</span>
-            <span class="mono">${s.sets.map((x) => `${num(x.peso)}×${x.reps}`).join(' · ')}</span>
+            <span class="faint">${fechaCorta(se.fecha)}</span>
+            <span class="mono">${se.sets.map((x) => `${num(x.peso)}×${x.reps}`).join(' · ')}</span>
           </div>`).join('')}
       </div>`,
   });

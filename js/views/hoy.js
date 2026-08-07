@@ -4,63 +4,96 @@ import {
   registrarPeso, pesoActual, historial, SEMANAS_CALIBRACION,
 } from '../store.js';
 import { acts, esc, toast, kg, num, hoyISO, fechaCorta, diasEntre } from '../lib/ui.js';
-import { consejoDelDia, informeCalibracionDisponible, generarInformeCalibracion } from '../engine/coach.js';
+import { consejosDelDia, informeCalibracionDisponible, generarInformeCalibracion } from '../engine/coach.js';
 import { sugerencia } from '../engine/progression.js';
 import { objetivos, cargarAlimentos, ingeridoHoy, comidasHechas } from '../engine/nutrition.js';
 import { cargar as cargarCatalogo } from '../data/catalog.js';
+
+let timerConsejo = null;
 
 export async function render(ctx) {
   const rutina = rutinaActiva();
   const dia = siguienteDia(rutina);
   const sem = semanaPrograma();
-  const consejo = consejoDelDia();
+  const consejos = consejosDelDia();
   const activa = S.sesionActiva;
-
   ctx.view.innerHTML = `
+    <style>
+      #carrusel-scroll::-webkit-scrollbar { display: none; }
+    </style>
     ${cabecera(sem)}
     ${informeCalibracionDisponible() ? bannerInforme() : ''}
-    ${tarjetaConsejo(consejo)}
+    <div id="carrusel-consejos" style="margin-bottom: 16px;">
+      <div id="carrusel-scroll" style="display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; -ms-overflow-style: none; gap: 16px; padding-bottom: 4px;">
+        ${consejos.map((c) => `
+          <div style="flex: 0 0 100%; scroll-snap-align: start; scroll-snap-stop: always;">
+            ${tarjetaConsejo(c)}
+          </div>
+        `).join('')}
+      </div>
+      ${consejos.length > 1 ? `
+        <div id="carrusel-dots" class="row" style="justify-content: center; gap: 6px; margin-top: 12px;">
+          ${consejos.map((c, i) => {
+            const color = 'var(--accent)';
+            return `<div class="dot" data-color="${color}" style="width: 6px; height: 6px; border-radius: 50%; background-color: ${i === 0 ? color : 'var(--line)'}; transition: background-color 0.3s;"></div>`;
+          }).join('')}
+        </div>
+      ` : ''}
+    </div>
     ${activa ? tarjetaEnCurso(activa) : tarjetaSesion(rutina, dia)}
-    ${tarjetaPeso()}
-    ${tarjetaComida()}
-    <button class="btn quiet block mt" data-act="ajustes">Ajustes y respaldo</button>`;
+    <div style="height:24px"></div>`;
 
   acts(ctx.view, {
-    entrenar: () => ctx.ir('/entreno'),
+    entrenar: () => ctx.ir('/entreno/hoy'),
     rutinas: () => ctx.ir('/rutinas'),
-    comida: () => ctx.ir('/comida'),
-    progreso: () => ctx.ir('/progreso'),
-    ajustes: () => ctx.ir('/ajustes'),
-    verInforme: () => { generarInformeCalibracion(); ctx.ir('/progreso'); },
-    guardarPeso: () => {
-      const v = Number(ctx.view.querySelector('#peso-hoy').value);
-      if (!v || v < 25 || v > 300) return toast('Ese peso no cuadra', 'bad');
-      registrarPeso(v);
-      toast('Peso guardado', 'ok');
-      render(ctx);
-    },
+    wizard: () => ctx.ir('/wizard'),
+    verInforme: () => { generarInformeCalibracion(); ctx.ir('/yo'); },
   });
 
   // El detalle de la sesión necesita el catálogo y los macros; se cargan después
   // de pintar para que la pantalla aparezca al instante.
   pintarDetalleSesion(ctx, rutina, dia);
   pintarMacros(ctx);
+
+  if (timerConsejo) clearInterval(timerConsejo);
+  if (consejos.length > 1) {
+    // Al esperar que se pinte la vista, enganchamos los listeners
+    setTimeout(() => {
+      const scrollEl = ctx.view.querySelector('#carrusel-scroll');
+      const dots = ctx.view.querySelectorAll('#carrusel-dots .dot');
+      if (!scrollEl) return;
+      
+      let idxActual = 0;
+      scrollEl.addEventListener('scroll', () => {
+        const newIdx = Math.round(scrollEl.scrollLeft / scrollEl.clientWidth);
+        if (newIdx !== idxActual) {
+          idxActual = newIdx;
+          dots.forEach((d, i) => {
+            d.style.backgroundColor = i === idxActual ? d.dataset.color : 'var(--line)';
+          });
+        }
+      });
+
+      timerConsejo = setInterval(() => {
+        idxActual = (idxActual + 1) % consejos.length;
+        scrollEl.scrollTo({ left: scrollEl.clientWidth * idxActual, behavior: 'smooth' });
+      }, 15000);
+    }, 0);
+  }
 }
 
 /* ---------- Bloques ---------- */
 
 function cabecera(sem) {
   const nombre = S.perfil?.nombre?.trim();
-  const hora = new Date().getHours();
-  const saludo = hora < 6 ? 'Buenas noches' : hora < 14 ? 'Buenos días' : hora < 21 ? 'Buenas tardes' : 'Buenas noches';
   const etiqueta = enDeload() ? '<span class="tag warn">Descarga</span>'
     : enCalibracion() ? `<span class="tag accent">Calibración ${Math.max(1, sem)}/${SEMANAS_CALIBRACION}</span>`
       : `<span class="tag">Semana ${sem}</span>`;
   return `
     <div class="row" style="align-items:flex-start;justify-content:space-between">
       <div>
-        <h2 class="page-title">${saludo}${nombre ? `, ${esc(nombre)}` : ''}</h2>
-        <p class="page-sub mb0">${fechaCorta(hoyISO())}</p>
+        <h2 class="page-title" style="font-size: 2rem;">Hola${nombre ? `, ${esc(nombre)}` : ''}</h2>
+        <p class="page-sub mb0">${fechaCorta(hoyISO())} · Aquí está tu resumen de hoy.</p>
       </div>
       ${etiqueta}
     </div>
@@ -77,33 +110,55 @@ function bannerInforme() {
 }
 
 function tarjetaConsejo(c) {
-  const color = { ok: 'var(--ok)', bad: 'var(--bad)', warn: 'var(--warn)', info: 'var(--info)', accent: 'var(--accent)' }[c.tono] || 'var(--accent)';
+  const isInfo = (c.titulo.toLowerCase().includes('medir') || c.tono === 'info');
+  const etiqueta = isInfo ? 'INFO' : 'CONSEJO';
+  const colorAccent = 'var(--accent)';
+
+  const cardStyle = isInfo 
+    ? `background: ${colorAccent}; color: #fff; border:none; position:relative; margin:0; height:100%;`
+    : `border-left: 3px solid ${colorAccent}; position:relative; margin:0; height:100%;`;
+  
+  const eyebrowStyle = isInfo ? `color: #000; font-weight: 600;` : `color: ${colorAccent};`;
+  const titleStyle = isInfo ? `margin-right: 70px; color: #000;` : `margin-right: 70px;`;
+  const textClass = isInfo ? `small mb0` : `muted small mb0`;
+  const tagStyle = isInfo 
+    ? `background: #000; color: #fff; border: none;` 
+    : `background: var(--bg-alt); color: var(--text);`;
+
   return `
-    <div class="card" style="border-left:3px solid ${color}">
-      <div class="eyebrow" style="color:${color}">El entrenador dice</div>
-      <h3>${esc(c.titulo)}</h3>
-      <p class="muted small mb0">${esc(c.texto)}</p>
+    <div class="card" style="${cardStyle}">
+      <div class="eyebrow" style="${eyebrowStyle}">El entrenador dice</div>
+      <h3 style="${titleStyle}">${esc(c.titulo)}</h3>
+      <p class="${textClass}">${esc(c.texto)}</p>
+      
+      <div style="position:absolute; top: 12px; right: 12px;">
+        <span class="tag" style="${tagStyle}">${etiqueta}</span>
+      </div>
     </div>`;
 }
 
 function tarjetaSesion(rutina, dia) {
   if (!rutina || !dia) {
+    const esNovato = S.perfil?.experiencia === 'novato';
     return `
-      <div class="card accent">
-        <h3>Aún no tienes rutina</h3>
-        <p class="muted small">Crea una en dos toques: te la genero según tus días y tu material, o la montas ejercicio a ejercicio.</p>
-        <button class="btn primary block" data-act="rutinas">Crear rutina</button>
+      <div class="card accent glow">
+        <div class="eyebrow">Primer Paso</div>
+        <h3>${esNovato ? 'Tu rutina lista' : 'Configurar rutina'}</h3>
+        <p class="muted small">${esNovato 
+          ? 'Como nos dijiste que eres nuevo, he preparado una rutina desde cero para ti.' 
+          : 'Vamos a configurar la rutina que ya haces o, si eres nuevo, crear una para ti.'}</p>
+        <button class="btn primary block lg mt" data-act="wizard">${esNovato ? 'Empezar a entrenar' : 'Configurar entreno'}</button>
       </div>`;
   }
   const ultima = S.sesiones.filter((s) => s.diaId === dia.id).at(-1);
   const desde = ultima ? diasEntre(ultima.fecha, hoyISO()) : null;
   return `
     <div class="card accent glow">
-      <div class="eyebrow">Hoy toca</div>
-      <div class="row" style="align-items:center;justify-content:space-between">
-        <h3 style="font-size:1.35rem">${esc(dia.nombre)}</h3>
+      <div class="row" style="align-items:flex-start;justify-content:space-between">
+        <h3 style="font-size:1.8rem; color: var(--accent); margin-bottom: 0;">${esc(dia.nombre)}</h3>
         <span class="tag">${dia.ejercicios.length} ejercicios</span>
       </div>
+      <div class="eyebrow" style="margin-top: 4px; color: var(--text);">Hoy toca</div>
       <p class="muted tiny" style="margin:6px 0 12px">
         ${esc(rutina.nombre)}${desde != null ? ` · última vez hace ${desde} día${desde === 1 ? '' : 's'}` : ' · primera vez'}
       </p>

@@ -4,9 +4,10 @@
  */
 import {
   S, guardar, uid, rutinaActiva, siguienteDia, historial, e1rm, enCalibracion,
+  registrarPeso, pesoActual,
 } from '../store.js';
 import {
-  acts, esc, toast, sheet, confirmar, num, kg, mmss, duracion, hoyISO, $,
+  acts, esc, toast, sheet, confirmar, num, kg, mmss, duracion, hoyISO, diasEntre, $,
 } from '../lib/ui.js';
 import { sugerencia, avisoEstancamiento, incrementoDe, marcas } from '../engine/progression.js';
 import { cargar as cargarCatalogo, ejercicio, gifDe, alternativas, buscar } from '../data/catalog.js';
@@ -27,7 +28,24 @@ export async function render(c) {
   ctx = c;
   await cargarCatalogo();
 
-  if (!S.sesionActiva) return pintarInicio();
+  if (!S.sesionActiva) {
+    if (c.params && c.params[0] === 'hoy') {
+      const rutina = rutinaActiva();
+      const sugerido = siguienteDia(rutina);
+      if (rutina && sugerido) {
+        ctx.view.innerHTML = `
+          <div class="card accent glow mt-lg" style="text-align: center; padding: 40px 20px;">
+            <div class="eyebrow">Preparando tu sesión</div>
+            <h2 class="page-title" style="margin-bottom: 8px;">${esc(sugerido.nombre)}</h2>
+            <p class="muted small mb0">Elige el modo de entrenamiento para empezar.</p>
+          </div>
+        `;
+        confirmarModoEntreno(rutina, sugerido);
+        return;
+      }
+    }
+    return pintarInicio();
+  }
 
   pintarSesion();
   timer.mantenerPantalla(true);
@@ -39,6 +57,10 @@ export async function render(c) {
    Antes de empezar: elegir el día
    ========================================================================== */
 
+/**
+ * El apartado «+»: el menú de qué hacer hoy. Lo que toca según la rutina,
+ * entrenar otro día distinto, o cualquier otra cosa que quieras apuntar.
+ */
 function pintarInicio() {
   const rutina = rutinaActiva();
   if (!rutina?.dias?.length) {
@@ -51,32 +73,134 @@ function pintarInicio() {
     return acts(ctx.view, { rutinas: () => ctx.ir('/rutinas') });
   }
 
+  // Aquí nunca hay sesión a medias: si la hubiera, render() ya habría entrado
+  // directo al entreno sin pasar por este menú.
   const sugerido = siguienteDia(rutina);
+  const otros = rutina.dias.filter((d) => d.id !== sugerido?.id);
+  const ultimaDelDia = S.sesiones.filter((s) => s.diaId === sugerido?.id).at(-1);
+  const desde = ultimaDelDia ? diasEntre(ultimaDelDia.fecha, hoyISO()) : null;
+
   ctx.view.innerHTML = `
-    <h2 class="page-title">Empezar entreno</h2>
-    <p class="page-sub">${esc(rutina.nombre)} · toca el día que vas a hacer.</p>
-    <div class="stack">
-      ${rutina.dias.map((d) => {
-    const esHoy = d.id === sugerido?.id;
-    const ultima = S.sesiones.filter((s) => s.diaId === d.id).at(-1);
+    <h2 class="page-title">¿Qué haces hoy?</h2>
+    <p class="page-sub">${esc(rutina.nombre)}</p>
+
+    <div class="card accent glow">
+      <div class="eyebrow">Te toca</div>
+      <h3 style="font-size:1.5rem;color:var(--accent)">${esc(sugerido.nombre)}</h3>
+      <p class="muted tiny" style="margin:6px 0 14px">
+        ${sugerido.ejercicios.length} ejercicios${desde != null ? ` · última vez hace ${desde} día${desde === 1 ? '' : 's'}` : ' · primera vez'}
+      </p>
+      <button class="btn primary block lg" data-act="empezar" data-id="${sugerido.id}">Empezar entreno</button>
+    </div>
+
+    ${otros.length ? `
+      <div class="card">
+        <div class="card-head"><h3>Entrenar otro día</h3></div>
+        <p class="muted tiny" style="margin-top:-6px">Si hoy te apetece otra cosa, elige el día que quieras. La progresión se lleva por día, así que no se descuadra nada.</p>
+        <div class="stack" style="gap:8px">
+          ${otros.map((d) => {
+    const ult = S.sesiones.filter((s) => s.diaId === d.id).at(-1);
     return `
-        <button class="list-item" data-act="empezar" data-id="${d.id}" style="${esHoy ? 'border-color:var(--accent)' : ''}">
-          <div class="body">
-            <b>${esc(d.nombre)}</b>
-            <small>${d.ejercicios.length} ejercicios${ultima ? ` · última vez ${ultima.fecha}` : ' · nunca'}</small>
-          </div>
-          ${esHoy ? '<span class="tag accent">Toca hoy</span>' : ''}
-        </button>`;
+            <button class="list-item" data-act="empezar" data-id="${d.id}" style="margin:0">
+              <div class="body">
+                <b>${esc(d.nombre)}</b>
+                <small>${d.ejercicios.length} ejercicios${ult ? ` · hace ${diasEntre(ult.fecha, hoyISO())} días` : ' · nunca'}</small>
+              </div>
+            </button>`;
   }).join('')}
+        </div>
+      </div>` : ''}
+
+    <div class="card">
+      <div class="card-head"><h3>Otra cosa</h3></div>
+      <div class="stack" style="gap:8px">
+        <button class="list-item" data-act="peso" style="margin:0">
+          <div class="body"><b>Anotar mi peso corporal</b><small>${pesoActual() ? `Ahora mismo: ${kg(pesoActual())}` : 'Aún no te has pesado'}</small></div>
+        </button>
+        <button class="list-item" data-act="comida" style="margin:0">
+          <div class="body"><b>Comida de hoy</b><small>Macros del día y plan de comidas</small></div>
+        </button>
+        <button class="list-item" data-act="rutinas" style="margin:0">
+          <div class="body"><b>Mis rutinas</b><small>Cambiar ejercicios, series o repeticiones</small></div>
+        </button>
+      </div>
     </div>`;
 
   acts(ctx.view, {
     rutinas: () => ctx.ir('/rutinas'),
-    empezar: (n) => empezarSesion(rutina, rutina.dias.find((d) => d.id === n.dataset.id)),
+    comida: () => ctx.ir('/comida'),
+    peso: () => hojaPeso(),
+    empezar: (n) => confirmarModoEntreno(rutina, rutina.dias.find((d) => d.id === n.dataset.id)),
   });
 }
 
-function empezarSesion(rutina, dia) {
+/** Apunte rápido del peso corporal desde el menú. */
+function hojaPeso() {
+  const actual = pesoActual();
+  const h = sheet({
+    title: 'Peso corporal',
+    body: `
+      <p class="muted small">Pésate siempre igual, en ayunas. Lo que miro es la tendencia de varias semanas, no el número de hoy.</p>
+      <div class="row mt">
+        <input class="input num grow" id="peso-rapido" type="number" inputmode="decimal" step="0.1"
+               value="${actual ?? ''}" placeholder="${actual ?? 75}" style="min-height:56px;font-size:1.3rem;text-align:center">
+        <button class="btn primary" id="peso-ok">Guardar</button>
+      </div>`,
+  });
+  h.el.querySelector('#peso-ok').onclick = () => {
+    const v = Number(h.el.querySelector('#peso-rapido').value);
+    if (!v || v < 25 || v > 300) return toast('Ese peso no cuadra', 'bad');
+    registrarPeso(v);
+    h.close();
+    toast('Peso guardado', 'ok');
+    pintarInicio();
+  };
+}
+
+/**
+ * Selector de modo. Sale siempre antes de empezar: anotar pesos o solo entrenar.
+ * Si se cierra sin elegir, vuelve al menú en vez de dejarte en una pantalla
+ * muerta esperando una sesión que nunca arrancó.
+ */
+function confirmarModoEntreno(rutina, dia) {
+  if (!dia) return;
+  let elegido = false;
+
+  const s = sheet({
+    title: 'Modo de entrenamiento',
+    body: `
+      <p class="muted small mb0">Anotar tus pesos mejorará tus resultados, pero si no lo haces, de igual forma mejorarás por el simple hecho de entrenar.</p>
+      <div class="stack mt">
+        <button class="list-item" id="modo-detallado" style="border-color:var(--accent)">
+          <div class="body">
+            <b>Anotar pesos (Recomendado)</b>
+            <small>Control total de series, reps y peso para asegurar progreso.</small>
+          </div>
+        </button>
+        <button class="list-item" id="modo-simple">
+          <div class="body">
+            <b>Solo entrenar (Modo simple)</b>
+            <small>Te digo qué hacer y cuánto descansar. Cero estrés.</small>
+          </div>
+        </button>
+      </div>`,
+    onClose: () => {
+      if (elegido || S.sesionActiva) return;
+      if (location.hash.startsWith('#/entreno/hoy')) ctx.ir('/entreno');
+      else pintarInicio();
+    },
+  });
+
+  const arrancar = (modo) => {
+    elegido = true;
+    s.close();
+    empezarSesion(rutina, dia, modo);
+  };
+  s.el.querySelector('#modo-detallado').onclick = () => arrancar('detallado');
+  s.el.querySelector('#modo-simple').onclick = () => arrancar('simple');
+}
+
+function empezarSesion(rutina, dia, modo) {
   if (!dia) return;
   S.sesionActiva = {
     id: uid(),
@@ -85,6 +209,7 @@ function empezarSesion(rutina, dia) {
     rutinaId: rutina.id,
     diaId: dia.id,
     nombre: dia.nombre,
+    modo: modo || 'detallado',
     idx: 0,
     ejercicios: dia.ejercicios.map((e) => ({
       ...e,
@@ -100,10 +225,109 @@ function empezarSesion(rutina, dia) {
 }
 
 /* ==========================================================================
-   Sesión en curso
+   Modo Simple (Perezoso)
+   ========================================================================== */
+
+function pintarSesionSimple() {
+  const s = S.sesionActiva;
+  const ej = s.ejercicios[s.idx];
+  const ex = ejercicio(ej.exId);
+  const hechas = s.idx;
+  const total = s.ejercicios.length;
+
+  ctx.view.innerHTML = `
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <div>
+        <div class="eyebrow">${esc(s.nombre)} · Modo Simple</div>
+        <p class="tiny faint mb0">Ejercicio ${s.idx + 1} de ${total}</p>
+      </div>
+      <button class="btn sm quiet" data-act="terminarSimple">Terminar</button>
+    </div>
+    <div class="bar mt" style="margin-bottom:16px"><i style="width:${total ? (hechas / total) * 100 : 0}%"></i></div>
+
+    <div class="card accent" style="text-align: center; padding: 24px 16px;">
+      <img src="${gifDe(ex)}" alt="" style="width: 160px; height: 160px; object-fit: cover; border-radius: 16px; margin: 0 auto 16px; display: block; border: 1px solid var(--line);" loading="lazy" onerror="this.style.display='none'">
+      <h3 style="text-transform:capitalize;font-size:1.4rem; margin-bottom: 8px;">${esc(ej.nombre)}</h3>
+      <p class="small faint" style="margin-bottom: 18px;">
+        ${esc(tTarget(ej.target))} · ${esc(tEquipo(ej.equipment))}
+      </p>
+      <div class="row wrap" style="justify-content: center; gap:8px">
+        <button class="btn quiet" data-act="comoSeHace">Instrucciones</button>
+        <button class="btn quiet" data-act="cambiar">Cambiar</button>
+      </div>
+    </div>
+
+    <div class="card glow" style="text-align:center; padding: 32px 16px;">
+      <h2 style="font-size: 2.2rem; color: var(--text); margin-bottom: 8px;">${ej.series} series</h2>
+      <p class="muted">de ${ej.repMin} a ${ej.repMax} repeticiones</p>
+      
+      <button class="btn ghost mt-lg" data-act="iniciarDescansoSimple">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Descansar ${mmss(ej.descanso)}
+      </button>
+    </div>
+
+    <div class="row mt">
+      <button class="btn quiet grow" data-act="anterior" ${s.idx === 0 ? 'disabled' : ''}>Anterior</button>
+      <button class="btn primary grow" data-act="siguienteSimple">${s.idx === s.ejercicios.length - 1 ? 'Finalizar' : 'Siguiente ejercicio'}</button>
+    </div>
+
+    <div id="timer-slot"></div>`;
+
+  acts(ctx.view, MANEJADORES);
+  actualizarTemporizador(timer.restante());
+  
+  timer.mantenerPantalla(true);
+  desuscribir?.();
+  desuscribir = timer.alTic(actualizarTemporizador);
+}
+
+function pintarResumenSimple() {
+  const s = S.sesionActiva;
+  
+  ctx.view.innerHTML = `
+    <h2 class="page-title">Buen trabajo</h2>
+    <p class="page-sub">Antes de irte, anota el peso máximo que levantaste en cada ejercicio para llevar un historial mínimo (si no usaste peso o no quieres anotar, déjalo en 0).</p>
+    
+    <div class="stack mt-lg">
+      ${s.ejercicios.map((ej, i) => `
+        <div class="card" style="padding: 12px; margin-bottom: 0;">
+          <div class="row" style="align-items:center; gap: 12px;">
+            <img src="${gifDe(ejercicio(ej.exId))}" style="width:48px;height:48px;border-radius:8px;" onerror="this.style.display='none'">
+            <div class="grow">
+              <b style="font-size:0.9rem">${esc(ej.nombre)}</b>
+              <div class="row" style="align-items:center; gap: 8px; margin-top:6px;">
+                <input class="input num peso-max" data-idx="${i}" type="number" inputmode="decimal" step="0.5" placeholder="Peso máx (ej. 20)" style="min-height:40px; padding: 6px 10px; font-size:1rem;">
+                <span class="muted small">kg</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+    
+    <button class="btn primary block lg mt-lg" data-act="guardarSimple">Guardar y terminar</button>
+    <div style="height:32px"></div>
+  `;
+
+  acts(ctx.view, MANEJADORES);
+}
+
+
+/* ==========================================================================
+   Sesión en curso (Modo Detallado)
    ========================================================================== */
 
 function pintarSesion() {
+  const s = S.sesionActiva;
+  if (!s) return;
+  if (s.paso === 'resumen-simple') return pintarResumenSimple();
+  if (s.modo === 'simple') return pintarSesionSimple();
+  
+  pintarSesionDetallada();
+}
+
+function pintarSesionDetallada() {
   const s = S.sesionActiva;
   const ej = s.ejercicios[s.idx];
   const ex = ejercicio(ej.exId);
@@ -177,7 +401,7 @@ function filasDeSeries(ej) {
           <span class="tag accent" style="flex:none">${i + 1}</span>
           <div class="body">
             <b class="mono">${num(hecha.peso)} kg × ${hecha.reps}</b>
-            <small>${hecha.rir != null ? `RIR ${hecha.rir}` : 'sin esfuerzo marcado'} · 1RM est. ${num(e1rm(hecha.peso, hecha.reps, hecha.rir))} kg</small>
+            <small>${hecha.rir != null ? `(${hecha.rir} reps de sobra)` : 'sin esfuerzo marcado'} · 1RM est. ${num(e1rm(hecha.peso, hecha.reps, hecha.rir))} kg</small>
           </div>
           <span class="tiny faint">editar</span>
         </button>`);
@@ -232,7 +456,7 @@ function filaActiva(ej, i, inc) {
       </div>
 
       <div style="margin-top:12px">
-        <label class="tiny faint">Reps que te quedaban (RIR)</label>
+        <label class="tiny faint">Reps que te quedaban (de sobra)</label>
         <div class="chips" style="margin-top:6px" id="rir-chips">
           ${[0, 1, 2, 3, 4].map((v) => `
             <button class="chip ${v === rir ? 'on' : ''}" data-act="rir" data-v="${v}">${v === 4 ? '4+' : v}</button>`).join('')}
@@ -304,6 +528,49 @@ const MANEJADORES = {
   menosTiempo: () => timer.sumar(-15),
 
   terminar: () => terminarSesion(),
+
+  iniciarDescansoSimple: () => {
+    const ej = S.sesionActiva.ejercicios[S.sesionActiva.idx];
+    timer.arrancar(ej.descanso);
+    pintarSesionSimple();
+  },
+
+  siguienteSimple: () => {
+    timer.parar();
+    if (S.sesionActiva.idx === S.sesionActiva.ejercicios.length - 1) {
+      S.sesionActiva.paso = 'resumen-simple';
+      guardar();
+      pintarResumenSimple();
+    } else {
+      S.sesionActiva.idx++;
+      guardar();
+      pintarSesionSimple();
+    }
+  },
+
+  terminarSimple: () => {
+    S.sesionActiva.paso = 'resumen-simple';
+    guardar();
+    pintarResumenSimple();
+  },
+
+  guardarSimple: () => {
+    const s = S.sesionActiva;
+    const inputs = Array.from(ctx.view.querySelectorAll('.peso-max'));
+    
+    inputs.forEach((input) => {
+      const idx = Number(input.dataset.idx);
+      const ej = s.ejercicios[idx];
+      const pesoMax = Number(input.value) || 0;
+      
+      // Creamos series ficticias con el peso máximo y las reps objetivo para el historial de volumen.
+      for(let i=0; i<ej.series; i++) {
+        ej.sets.push({ peso: pesoMax, reps: ej.repMax || 10, rir: 2, ts: Date.now() });
+      }
+    });
+    
+    terminarSesion();
+  },
 };
 
 function ajustar(sel, delta) {
@@ -327,7 +594,7 @@ function editarSerie(i) {
           <input class="input num" id="ed-reps" type="number" inputmode="numeric" value="${set.reps}"></div>
       </div>
       <div class="field">
-        <label>RIR</label>
+        <label>Reps de sobra</label>
         <div class="chips" id="ed-rir">
           ${[0, 1, 2, 3, 4].map((v) => `<button class="chip ${v === set.rir ? 'on' : ''}" data-v="${v}">${v === 4 ? '4+' : v}</button>`).join('')}
         </div>
@@ -365,7 +632,7 @@ function verInstrucciones() {
   sheet({
     title: ex.name,
     body: `
-      <img src="${gifDe(ex)}" alt="" style="width:100%;max-width:260px;display:block;margin:0 auto 16px;border-radius:14px;background:#fff">
+      <img src="${gifDe(ex)}" alt="" style="width:100%;max-width:260px;display:block;margin:0 auto 16px;border-radius:14px;">
       <div class="row wrap" style="gap:6px;margin-bottom:14px">
         <span class="tag accent">${esc(tTarget(ex.target))}</span>
         <span class="tag">${esc(tEquipo(ex.equipment))}</span>
