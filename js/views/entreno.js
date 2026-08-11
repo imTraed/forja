@@ -653,7 +653,8 @@ const MANEJADORES = {
       }
     });
 
-    terminarSesion();
+    // El resumen del modo simple ya es la confirmación: no preguntamos otra vez.
+    terminarSesion({ pedirConfirmacion: false });
   },
 };
 
@@ -803,19 +804,28 @@ function actualizarTemporizador(restante) {
 
 /* ---------- Cierre ---------- */
 
-async function terminarSesion() {
+/**
+ * @param {object} o
+ * @param {boolean} o.pedirConfirmacion  el modo simple ya confirma en su
+ *   pantalla de resumen, así que ahí no hace falta preguntar dos veces.
+ */
+async function terminarSesion({ pedirConfirmacion = true } = {}) {
   const s = S.sesionActiva;
   const series = s.ejercicios.reduce((t, e) => t + e.sets.filter((x) => x.reps > 0).length, 0);
+  const nEjercicios = s.ejercicios.filter((e) => e.sets.length).length;
 
   if (!series) {
-    if (!await confirmar('Descartar sesión', 'No has registrado ninguna serie. Se descartará la sesión.', 'Descartar')) return;
+    if (!await confirmar('Descartar sesión', 'No has registrado nada. Se descartará la sesión.', 'Descartar')) return;
     S.sesionActiva = null;
     timer.parar();
     guardar();
     return ctx.ir('/hoy');
   }
 
-  if (!await confirmar('Terminar entreno', `Vas a guardar ${series} series. Después ya no se puede seguir añadiendo a esta sesión.`, 'Terminar', false)) return;
+  if (pedirConfirmacion && !await confirmar(
+    'Terminar entreno',
+    `Vas a guardar ${nEjercicios} ejercicio${nEjercicios === 1 ? '' : 's'}. Después ya no se puede seguir añadiendo a esta sesión.`,
+    'Terminar', false)) return;
 
   const records = [];
   for (const e of s.ejercicios) {
@@ -840,14 +850,20 @@ async function terminarSesion() {
 
   // Las series sin peso anotado suman 0 al tonelaje, no NaN.
   const tonelaje = sesion.ejercicios.reduce((t, e) => t + e.sets.reduce((u, x) => u + (x.peso || 0) * x.reps, 0), 0);
+  const hechos = sesion.ejercicios.length;
+  const aproximado = sesion.ejercicios.some((e) => e.sets.some((x) => x.estimado));
+
   sheet({
     title: 'Sesión guardada',
     body: `
       <div class="stat-grid">
-        <div class="stat hi"><b>${series}</b><span>series</span></div>
-        <div class="stat"><b>${Math.round(tonelaje)}</b><span>kg movidos</span></div>
+        <div class="stat hi"><b>${hechos}</b><span>ejercicio${hechos === 1 ? '' : 's'}</span></div>
+        <div class="stat"><b>${series}</b><span>series</span></div>
         <div class="stat"><b>${duracion(sesion.duracion)}</b><span>duración</span></div>
       </div>
+      ${tonelaje > 0
+    ? `<p class="tiny faint center" style="margin-top:10px">${aproximado ? '≈ ' : ''}${Math.round(tonelaje).toLocaleString('es-ES')} kg movidos${aproximado ? ', por lo que anotaste a ojo' : ''}</p>`
+    : ''}
       ${records.length ? `
         <div class="card accent mt">
           <div class="eyebrow">Récords de hoy</div>

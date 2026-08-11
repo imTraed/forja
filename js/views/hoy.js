@@ -175,13 +175,20 @@ function tarjetaSesion(rutina, dia) {
 }
 
 function tarjetaEnCurso(sesion) {
-  const hechas = sesion.ejercicios.reduce((t, e) => t + e.sets.filter((s) => s.reps > 0).length, 0);
-  const total = sesion.ejercicios.reduce((t, e) => t + e.series, 0);
+  // En modo simple las series no se anotan hasta el final, así que contarlas
+  // daría siempre 0: ahí el avance se mide en ejercicios.
+  const esSimple = sesion.modo === 'simple';
+  const hechas = esSimple
+    ? sesion.idx
+    : sesion.ejercicios.reduce((t, e) => t + e.sets.filter((s) => s.reps > 0).length, 0);
+  const total = esSimple
+    ? sesion.ejercicios.length
+    : sesion.ejercicios.reduce((t, e) => t + e.series, 0);
   return `
     <div class="card accent glow">
       <div class="eyebrow">Sesión en curso</div>
       <h3>${esc(sesion.nombre)}</h3>
-      <p class="muted small">${hechas} de ${total} series hechas.</p>
+      <p class="muted small">${hechas} de ${total} ${esSimple ? 'ejercicios hechos' : 'series hechas'}.</p>
       <div class="bar" style="margin-bottom:14px"><i style="width:${total ? (hechas / total) * 100 : 0}%"></i></div>
       <button class="btn primary block lg" data-act="entrenar">Continuar entreno</button>
     </div>`;
