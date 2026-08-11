@@ -2,6 +2,7 @@
 import {
   S, rutinaActiva, siguienteDia, semanaPrograma, enCalibracion, enDeload,
   registrarPeso, pesoActual, historial, SEMANAS_CALIBRACION,
+  chequeoPendiente, ultimoChequeo,
 } from '../store.js';
 import { acts, esc, toast, kg, num, hoyISO, fechaCorta, diasEntre } from '../lib/ui.js';
 import { consejosDelDia, informeCalibracionDisponible, generarInformeCalibracion } from '../engine/coach.js';
@@ -23,6 +24,7 @@ export async function render(ctx) {
     </style>
     ${cabecera(sem)}
     ${informeCalibracionDisponible() ? bannerInforme() : ''}
+    ${chequeoPendiente() ? bannerChequeo() : ''}
     <div id="carrusel-consejos" style="margin-bottom: 16px;">
       <div id="carrusel-scroll" style="display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; -ms-overflow-style: none; gap: 16px; padding-bottom: 4px;">
         ${consejos.map((c) => `
@@ -47,6 +49,7 @@ export async function render(ctx) {
     entrenar: () => ctx.ir('/entreno/hoy'),
     rutinas: () => ctx.ir('/rutinas'),
     wizard: () => ctx.ir('/wizard'),
+    chequeo: () => ctx.ir('/chequeo'),
     verInforme: () => { generarInformeCalibracion(); ctx.ir('/yo'); },
   });
 
@@ -98,6 +101,20 @@ function cabecera(sem) {
       ${etiqueta}
     </div>
     <div style="height:16px"></div>`;
+}
+
+function bannerChequeo() {
+  const primero = !ultimoChequeo();
+  return `
+    <button class="card accent glow" data-act="chequeo" style="width:100%;text-align:left">
+      <div class="eyebrow">Toca chequeo</div>
+      <h3>${primero ? 'Dime con cuánto peso vas' : 'Chequeo semanal'}</h3>
+      <p class="muted small mb0">
+        ${primero
+    ? 'Cuatro números y ya puedo medir si progresas, sin que tengas que anotar serie a serie.'
+    : 'Ha pasado una semana. Cuatro números y te digo en qué has subido.'}
+      </p>
+    </button>`;
 }
 
 function bannerInforme() {

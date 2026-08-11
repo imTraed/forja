@@ -4,7 +4,7 @@
  */
 import {
   S, guardar, uid, rutinaActiva, siguienteDia, historial, e1rm, enCalibracion,
-  registrarPeso, pesoActual, MAX_SERIES,
+  registrarPeso, pesoActual, MAX_SERIES, esLite, chequeoPendiente,
 } from '../store.js';
 import {
   acts, esc, toast, sheet, confirmar, num, kg, mmss, duracion, hoyISO, diasEntre, $,
@@ -29,20 +29,11 @@ export async function render(c) {
   await cargarCatalogo();
 
   if (!S.sesionActiva) {
-    if (c.params && c.params[0] === 'hoy') {
+    // /entreno/hoy entra directo al día que toca; /entreno abre el menú.
+    if (c.params?.[0] === 'hoy') {
       const rutina = rutinaActiva();
       const sugerido = siguienteDia(rutina);
-      if (rutina && sugerido) {
-        ctx.view.innerHTML = `
-          <div class="card accent glow mt-lg" style="text-align: center; padding: 40px 20px;">
-            <div class="eyebrow">Preparando tu sesión</div>
-            <h2 class="page-title" style="margin-bottom: 8px;">${esc(sugerido.nombre)}</h2>
-            <p class="muted small mb0">Elige el modo de entrenamiento para empezar.</p>
-          </div>
-        `;
-        confirmarModoEntreno(rutina, sugerido);
-        return;
-      }
+      if (rutina && sugerido) return empezarSesion(rutina, sugerido);
     }
     return pintarInicio();
   }
@@ -114,6 +105,11 @@ function pintarInicio() {
     <div class="card">
       <div class="card-head"><h3>Otra cosa</h3></div>
       <div class="stack" style="gap:8px">
+        ${esLite() ? `
+          <button class="list-item" data-act="chequeo" style="margin:0;${chequeoPendiente() ? 'border-color:var(--accent)' : ''}">
+            <div class="body"><b>Chequeo semanal</b><small>Cuatro pesos y sigo midiendo si progresas</small></div>
+            ${chequeoPendiente() ? '<span class="tag accent">Toca</span>' : ''}
+          </button>` : ''}
         <button class="list-item" data-act="peso" style="margin:0">
           <div class="body"><b>Anotar mi peso corporal</b><small>${pesoActual() ? `Ahora mismo: ${kg(pesoActual())}` : 'Aún no te has pesado'}</small></div>
         </button>
@@ -130,7 +126,8 @@ function pintarInicio() {
     rutinas: () => ctx.ir('/rutinas'),
     comida: () => ctx.ir('/comida'),
     peso: () => hojaPeso(),
-    empezar: (n) => confirmarModoEntreno(rutina, rutina.dias.find((d) => d.id === n.dataset.id)),
+    chequeo: () => ctx.ir('/chequeo'),
+    empezar: (n) => empezarSesion(rutina, rutina.dias.find((d) => d.id === n.dataset.id)),
   });
 }
 
@@ -158,49 +155,10 @@ function hojaPeso() {
 }
 
 /**
- * Selector de modo. Sale siempre antes de empezar: anotar pesos o solo entrenar.
- * Si se cierra sin elegir, vuelve al menú en vez de dejarte en una pantalla
- * muerta esperando una sesión que nunca arrancó.
+ * El modo ya no se pregunta en cada sesión: es el de la app. Se cambia desde
+ * el botón de la barra superior o desde Ajustes.
  */
-function confirmarModoEntreno(rutina, dia) {
-  if (!dia) return;
-  let elegido = false;
-
-  const s = sheet({
-    title: 'Modo de entrenamiento',
-    body: `
-      <p class="muted small mb0">Anotar tus pesos mejorará tus resultados, pero si no lo haces, de igual forma mejorarás por el simple hecho de entrenar.</p>
-      <div class="stack mt">
-        <button class="list-item" id="modo-detallado" style="border-color:var(--accent)">
-          <div class="body">
-            <b>Anotar pesos (Recomendado)</b>
-            <small>Control total de series, reps y peso para asegurar progreso.</small>
-          </div>
-        </button>
-        <button class="list-item" id="modo-simple">
-          <div class="body">
-            <b>Solo entrenar (Modo simple)</b>
-            <small>Te digo qué hacer y cuánto descansar. Cero estrés.</small>
-          </div>
-        </button>
-      </div>`,
-    onClose: () => {
-      if (elegido || S.sesionActiva) return;
-      if (location.hash.startsWith('#/entreno/hoy')) ctx.ir('/entreno');
-      else pintarInicio();
-    },
-  });
-
-  const arrancar = (modo) => {
-    elegido = true;
-    s.close();
-    empezarSesion(rutina, dia, modo);
-  };
-  s.el.querySelector('#modo-detallado').onclick = () => arrancar('detallado');
-  s.el.querySelector('#modo-simple').onclick = () => arrancar('simple');
-}
-
-function empezarSesion(rutina, dia, modo) {
+function empezarSesion(rutina, dia) {
   if (!dia) return;
   S.sesionActiva = {
     id: uid(),
@@ -209,7 +167,7 @@ function empezarSesion(rutina, dia, modo) {
     rutinaId: rutina.id,
     diaId: dia.id,
     nombre: dia.nombre,
-    modo: modo || 'detallado',
+    modo: esLite() ? 'simple' : 'detallado',
     idx: 0,
     ejercicios: dia.ejercicios.map((e) => ({
       ...e,
@@ -313,41 +271,29 @@ function pintarSesionSimple() {
   desuscribir = timer.alTic(actualizarTemporizador);
 }
 
-function pintarResumenSimple() {
+/**
+ * Cierra la sesión de modo lite. No se pregunta por pesos: de eso se encarga
+ * el chequeo semanal. Se apuntan las series de los ejercicios a los que
+ * llegaste, sin peso, para que cuenten como volumen de la semana.
+ */
+function cerrarSesionSimple() {
   const s = S.sesionActiva;
-  // Solo los ejercicios a los que llegaste: si lo dejaste a medias, no se
-  // apunta trabajo que no hiciste.
   const hechos = s.ejercicios.slice(0, s.idx + 1);
 
-  ctx.view.innerHTML = `
-    <h2 class="page-title">Buen trabajo</h2>
-    <p class="page-sub">Si te acuerdas, dime por encima con cuánto peso fuiste. No hace falta que sea exacto y puedes dejar en blanco lo que quieras: la sesión cuenta igual.</p>
-
-    <div class="stack mt-lg">
-      ${hechos.map((ej, i) => `
-        <div class="card" style="padding: 12px; margin-bottom: 0;">
-          <div class="row" style="align-items:center; gap: 12px;">
-            <img src="${gifDe(ejercicio(ej.exId))}" style="width:48px;height:48px;border-radius:8px;" onerror="this.style.display='none'">
-            <div class="grow">
-              <b style="font-size:0.9rem">${esc(ej.nombre)}</b>
-              <div class="row" style="align-items:center; gap: 8px; margin-top:6px;">
-                <input class="input num peso-max" data-idx="${i}" type="number" inputmode="decimal" step="0.5"
-                       placeholder="${esCorporal(ej) ? 'Sin peso extra' : 'Aprox. (opcional)'}"
-                       style="min-height:40px; padding: 6px 10px; font-size:1rem;">
-                <span class="muted small">kg</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      `).join('')}
-    </div>
-
-    <button class="btn primary block lg mt-lg" data-act="guardarSimple">Guardar y terminar</button>
-    <p class="tiny faint center">Lo que dejes en blanco cuenta como entrenado, pero no lo uso para subirte pesos. Para eso está el modo con pesos.</p>
-    <div style="height:32px"></div>
-  `;
-
-  acts(ctx.view, MANEJADORES);
+  for (const ej of hechos) {
+    if (ej.sets.length) continue;
+    for (let i = 0; i < ej.series; i++) {
+      ej.sets.push({
+        peso: esCorporal(ej) ? 0 : null,
+        reps: ej.repMax || 10,
+        rir: null,
+        estimado: true,
+        ts: Date.now(),
+      });
+    }
+  }
+  guardar();
+  terminarSesion();
 }
 
 /** Ejercicios sin carga externa: ahí el 0 kg es el dato correcto. */
@@ -361,9 +307,8 @@ const esCorporal = (ej) => incrementoDe(ej.equipment) === 0;
 function pintarSesion() {
   const s = S.sesionActiva;
   if (!s) return;
-  if (s.paso === 'resumen-simple') return pintarResumenSimple();
   if (s.modo === 'simple') return pintarSesionSimple();
-  
+
   pintarSesionDetallada();
 }
 
@@ -610,52 +555,13 @@ const MANEJADORES = {
 
   siguienteSimple: () => {
     timer.parar();
-    if (S.sesionActiva.idx === S.sesionActiva.ejercicios.length - 1) {
-      S.sesionActiva.paso = 'resumen-simple';
-      guardar();
-      pintarResumenSimple();
-    } else {
-      S.sesionActiva.idx++;
-      guardar();
-      pintarSesionSimple();
-    }
-  },
-
-  terminarSimple: () => {
-    S.sesionActiva.paso = 'resumen-simple';
+    if (S.sesionActiva.idx === S.sesionActiva.ejercicios.length - 1) return cerrarSesionSimple();
+    S.sesionActiva.idx++;
     guardar();
-    pintarResumenSimple();
+    pintarSesionSimple();
   },
 
-  guardarSimple: () => {
-    const s = S.sesionActiva;
-    const inputs = Array.from(ctx.view.querySelectorAll('.peso-max'));
-
-    inputs.forEach((input) => {
-      const ej = s.ejercicios[Number(input.dataset.idx)];
-      const escrito = input.value.trim();
-      const peso = escrito === '' ? null : Number(escrito);
-
-      // En blanco entra como null, no como 0: la serie cuenta para el volumen
-      // de la semana pero queda fuera del cálculo de progresión, que es lo
-      // honesto cuando no sabemos con cuánto peso se hizo.
-      const pesoFinal = escrito === '' ? (esCorporal(ej) ? 0 : null)
-        : (Number.isNaN(peso) ? null : peso);
-
-      for (let i = 0; i < ej.series; i++) {
-        ej.sets.push({
-          peso: pesoFinal,
-          reps: ej.repMax || 10,
-          rir: null,            // en modo lite nadie mide el esfuerzo real
-          estimado: true,       // marca de que es una aproximación, no un registro
-          ts: Date.now(),
-        });
-      }
-    });
-
-    // El resumen del modo simple ya es la confirmación: no preguntamos otra vez.
-    terminarSesion({ pedirConfirmacion: false });
-  },
+  terminarSimple: () => cerrarSesionSimple(),
 };
 
 function ajustar(sel, delta) {

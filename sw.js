@@ -7,7 +7,7 @@
  * móvil sigue abriendo la versión que ya tenía guardada y los cambios no se
  * ven nunca.
  */
-const SHELL = 'forja-shell-v7';
+const SHELL = 'forja-shell-v8';
 const MEDIA = 'forja-media-v1';
 const MEDIA_HOST = 'raw.githubusercontent.com';
 
@@ -30,12 +30,14 @@ const ARCHIVOS = [
   'js/engine/nutrition.js',
   'js/engine/timer.js',
   'js/engine/generator.js',
+  'js/engine/chequeo.js',
   'js/views/onboarding.js',
   'js/views/hoy.js',
   'js/views/rutinas.js',
   'js/views/entreno.js',
   'js/views/wizard.js',
   'js/views/yo.js',
+  'js/views/chequeo.js',
   'js/views/comida.js',
   'js/views/ajustes.js',
 ];

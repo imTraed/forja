@@ -1,5 +1,5 @@
 /* Ajustes: perfil, incrementos, descansos, GIFs sin conexión y respaldo. */
-import { S, guardar, exportar, importar, rutinaActiva, semanaPrograma } from '../store.js';
+import { S, guardar, exportar, importar, rutinaActiva, semanaPrograma, modoApp, cambiarModo } from '../store.js';
 import { acts, on, esc, toast, confirmar } from '../lib/ui.js';
 import { CATEGORIAS_EQUIPO } from '../data/i18n.js';
 import { FACTOR_ACTIVIDAD, OBJETIVOS } from '../engine/nutrition.js';
@@ -20,6 +20,19 @@ function pintar() {
   ctx.view.innerHTML = `
     <h2 class="page-title">Ajustes</h2>
     <p class="page-sub">Semana ${semanaPrograma()} · ${S.sesiones.length} sesiones guardadas.</p>
+
+    <div class="card accent">
+      <div class="card-head"><h3>Versión de la app</h3></div>
+      <div class="seg">
+        <button data-act="modo" data-m="lite" class="${modoApp() === 'lite' ? 'on' : ''}">Lite</button>
+        <button data-act="modo" data-m="pro" class="${modoApp() === 'pro' ? 'on' : ''}">Pro</button>
+      </div>
+      <p class="muted small" style="margin-top:10px;margin-bottom:0">
+        ${modoApp() === 'lite'
+    ? 'Te guío ejercicio a ejercicio y los pesos salen del chequeo semanal de cuatro preguntas.'
+    : 'Anotas cada serie con su peso y su esfuerzo, y la progresión se calcula al detalle.'}
+      </p>
+    </div>
 
     <div class="card">
       <div class="card-head"><h3>Perfil</h3></div>
@@ -123,6 +136,7 @@ function pintar() {
       guardar();
       pintar();
     },
+    modo: (n) => { cambiarModo(n.dataset.m); pintar(); toast(`Modo ${n.dataset.m}`, 'ok'); },
     descanso: (n) => { S.ajustes.descanso[n.dataset.k] = Number(n.dataset.s); guardar(); pintar(); },
     toggle: (n) => { S.ajustes[n.dataset.k] = !S.ajustes[n.dataset.k]; guardar(); pintar(); },
     exportar: () => { exportar(); toast('Respaldo descargado', 'ok'); },

@@ -17,6 +17,22 @@ export const SEMANAS_CALIBRACION = 2;
  */
 export const MAX_SERIES = 10;
 
+/**
+ * Modo de la app entera, no de cada sesión.
+ *
+ * `pro` anota cada serie con su peso y su esfuerzo. `lite` solo te guía por los
+ * ejercicios y saca los pesos del chequeo semanal. Las dos versiones tienen las
+ * mismas pantallas: cambia el detalle que se te pide, no lo que puedes hacer.
+ */
+export const modoApp = () => (S.perfil?.modo === 'lite' ? 'lite' : 'pro');
+export const esLite = () => modoApp() === 'lite';
+
+export function cambiarModo(modo) {
+  if (!S.perfil) return;
+  S.perfil.modo = modo === 'lite' ? 'lite' : 'pro';
+  guardar();
+}
+
 function inicial() {
   return {
     v: VERSION,
@@ -33,6 +49,7 @@ function inicial() {
     rutinaActiva: null,
     sesiones: [],
     sesionActiva: null,
+    chequeos: [],
     peso: [],
     comida: { plan: null, hecho: {}, ajustes: [] },
     coach: { inicio: null, informes: [], deloadSemana: null, descartes: {} },
@@ -49,6 +66,13 @@ function migrar(guardado) {
   s.ajustes.descanso = { ...base.ajustes.descanso, ...guardado.ajustes?.descanso };
   s.comida = { ...base.comida, ...guardado.comida };
   s.coach = { ...base.coach, ...guardado.coach };
+  if (!Array.isArray(s.chequeos)) s.chequeos = [];
+
+  // El modo pasó de elegirse en cada sesión a ser de la app entera. Quien ya
+  // tenía perfil arranca en pro salvo que se declarase novato.
+  if (s.perfil && !s.perfil.modo) {
+    s.perfil.modo = s.perfil.experiencia === 'novato' ? 'lite' : 'pro';
+  }
   return s;
 }
 
@@ -206,6 +230,24 @@ export function historial(exId, limite = 0) {
       volumen: sets.reduce((t, x) => t + x.peso * x.reps, 0),
     });
   }
+
+  // Los chequeos semanales del modo lite cuentan como un punto más de
+  // historial: es de donde sale la progresión cuando no anotas serie a serie.
+  for (const c of S.chequeos) {
+    for (const z of c.zonas) {
+      if (z.exId !== exId || !(z.peso > 0)) continue;
+      const set = { peso: z.peso, reps: z.reps, rir: null, estimado: true };
+      out.push({
+        fecha: c.fecha,
+        sets: [set],
+        mejor: { ...set, e1: e1rm(z.peso, z.reps) },
+        e1rm: e1rm(z.peso, z.reps),
+        volumen: z.peso * z.reps,
+        chequeo: true,
+      });
+    }
+  }
+
   out.sort((a, b) => a.fecha.localeCompare(b.fecha));
   return limite ? out.slice(-limite) : out;
 }
@@ -227,7 +269,41 @@ export function ejerciciosEntrenados() {
       if (!prev || s.fecha > prev.fecha) mapa.set(e.exId, { exId: e.exId, nombre: e.nombre, fecha: s.fecha });
     }
   }
+  // Los ejercicios clave del chequeo semanal también tienen progresión que ver.
+  for (const c of S.chequeos) {
+    for (const z of c.zonas) {
+      if (!(z.peso > 0)) continue;
+      const prev = mapa.get(z.exId);
+      if (!prev || c.fecha > prev.fecha) mapa.set(z.exId, { exId: z.exId, nombre: z.nombre, fecha: c.fecha });
+    }
+  }
   return [...mapa.values()].sort((a, b) => b.fecha.localeCompare(a.fecha));
+}
+
+/* ==========================================================================
+   Chequeo semanal (modo lite)
+   ========================================================================== */
+
+export const ultimoChequeo = () => S.chequeos.at(-1) || null;
+
+/** Toca chequeo si nunca lo has hecho o si ha pasado una semana del último. */
+export function chequeoPendiente() {
+  if (!esLite() || !S.perfil) return false;
+  const u = ultimoChequeo();
+  if (!u) return S.sesiones.length > 0;
+  return diasEntre(u.fecha, hoyISO()) >= 7;
+}
+
+export function guardarChequeo(zonas, fecha = hoyISO()) {
+  const limpias = zonas.filter((z) => z.peso > 0);
+  if (!limpias.length) return null;
+  const registro = { id: uid(), fecha, zonas: limpias };
+  const i = S.chequeos.findIndex((c) => c.fecha === fecha);
+  if (i >= 0) S.chequeos[i] = registro;
+  else S.chequeos.push(registro);
+  S.chequeos.sort((a, b) => a.fecha.localeCompare(b.fecha));
+  guardar();
+  return registro;
 }
 
 /* ==========================================================================
