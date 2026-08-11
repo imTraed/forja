@@ -1,6 +1,8 @@
 /* Arranque y enrutado. Sin framework: cada vista pinta dentro de #view. */
-import { S, modoApp, cambiarModo } from './store.js';
+import { S, modoApp, cambiarModo, reemplazarEstado, configurarSincronizacion } from './store.js';
 import { sheet, esc } from './lib/ui.js';
+import { hayNube, haySesion, descargarEstado, subirEstado, renovar } from './lib/nube.js';
+import * as auth from './views/auth.js';
 import { $, $$ } from './lib/ui.js';
 import { prepararAudio } from './engine/timer.js';
 
@@ -32,6 +34,16 @@ let vistaActual = null;
 async function pintar() {
   const partes = partesDeRuta();
   const nombre = partes[0] || 'hoy';
+
+  // Con nube configurada, sin sesión no se pasa de aquí.
+  if (hayNube() && !haySesion()) {
+    vistaActual?.salir?.();
+    vistaActual = auth;
+    $('#tabbar').hidden = true;
+    $('#topbar').hidden = true;
+    await auth.render({ view, ir, params: [] });
+    return;
+  }
 
   // Sin perfil no hay app: primero el onboarding.
   if (!S.perfil) {
@@ -127,7 +139,42 @@ window.addEventListener('hashchange', pintar);
 // El audio de los avisos necesita un gesto del usuario para desbloquearse.
 document.addEventListener('pointerdown', () => prepararAudio(), { once: true });
 
+/**
+ * Al entrar se trae lo que hay en la cuenta. Si en la nube hay algo y aquí no
+ * (móvil nuevo, navegador borrado), gana la nube. Si es al revés — te
+ * registraste con datos ya hechos en este navegador — se sube lo de aquí.
+ * A partir de ahí, cada cambio se sube solo con unos segundos de retardo.
+ */
+async function arrancarNube() {
+  if (!hayNube() || !haySesion()) return;
+
+  await renovar();
+
+  try {
+    const remoto = await descargarEstado();
+    const hayLocal = Boolean(S.perfil);
+    if (remoto?.estado?.v && remoto.estado.perfil) {
+      const remotoEsMasNuevo = !hayLocal
+        || new Date(remoto.actualizado) > new Date(S.perfil?.creado || 0);
+      if (remotoEsMasNuevo) reemplazarEstado(remoto.estado);
+    } else if (hayLocal) {
+      await subirEstado(S);
+    }
+  } catch (e) {
+    console.warn('No se pudo sincronizar al arrancar:', e.message);
+  }
+
+  configurarSincronizacion(async (estado) => {
+    try {
+      await subirEstado(estado);
+    } catch (e) {
+      console.warn('No se pudo subir:', e.message);
+    }
+  });
+}
+
 async function arrancar() {
+  await arrancarNube();
   await pintar();
   $('#app').hidden = false;
   const boot = $('#boot');

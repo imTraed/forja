@@ -235,19 +235,79 @@ export function comidasHechas(fecha = hoyISO()) {
   return S.comida.hecho[fecha] || {};
 }
 
-/** Macros ingeridos hoy según lo que hay marcado. */
+const suma = (a, b) => ({ kcal: a.kcal + b.kcal, p: a.p + b.p, c: a.c + b.c, g: a.g + b.g });
+const CERO = { kcal: 0, p: 0, c: 0, g: 0 };
+
+/* ---------- Diario: lo que has comido de verdad ---------- */
+
+export const diarioDe = (fecha = hoyISO()) => S.comida.diario[fecha] || [];
+
+/** Añade un producto escaneado o buscado, con los gramos que te has comido. */
+export function anotarEnDiario(producto, gramos, fecha = hoyISO()) {
+  const g = Number(gramos) || 0;
+  if (!g) return null;
+  const k = g / 100;
+  const entrada = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    codigo: producto.codigo || null,
+    nombre: producto.nombre,
+    marca: producto.marca || '',
+    gramos: g,
+    por100: { kcal: producto.kcal, p: producto.p, c: producto.c, g: producto.g },
+    macros: { kcal: producto.kcal * k, p: producto.p * k, c: producto.c * k, g: producto.g * k },
+    ts: Date.now(),
+  };
+  S.comida.diario[fecha] = [...diarioDe(fecha), entrada];
+  guardar();
+  return entrada;
+}
+
+export function borrarDelDiario(id, fecha = hoyISO()) {
+  S.comida.diario[fecha] = diarioDe(fecha).filter((e) => e.id !== id);
+  guardar();
+}
+
+export const macrosDelDiario = (fecha = hoyISO()) => diarioDe(fecha).reduce((t, e) => suma(t, e.macros), CERO);
+
+/* ---------- Mi despensa: productos ya conocidos ---------- */
+
+/**
+ * Todo producto que pasa por el escáner se guarda aquí. Así el segundo escaneo
+ * es instantáneo y funciona sin conexión, y los productos que Open Food Facts
+ * no tiene (casi todo lo local) se crean una vez y quedan para siempre.
+ */
+export function guardarProducto(producto) {
+  const i = S.comida.misProductos.findIndex(
+    (p) => (producto.codigo && p.codigo === producto.codigo)
+      || (!producto.codigo && p.nombre.toLowerCase() === producto.nombre.toLowerCase()),
+  );
+  const limpio = { ...producto, usos: (S.comida.misProductos[i]?.usos || 0) + 1, visto: hoyISO() };
+  if (i >= 0) S.comida.misProductos[i] = limpio;
+  else S.comida.misProductos.push(limpio);
+  guardar();
+  return limpio;
+}
+
+export const productoGuardado = (codigo) => S.comida.misProductos.find((p) => p.codigo === codigo) || null;
+
+/** Los más usados primero: es lo que vas a volver a comer. */
+export const misProductos = () => [...S.comida.misProductos].sort((a, b) => (b.usos || 0) - (a.usos || 0));
+
+export function borrarProducto(codigoONombre) {
+  S.comida.misProductos = S.comida.misProductos.filter(
+    (p) => p.codigo !== codigoONombre && p.nombre !== codigoONombre,
+  );
+  guardar();
+}
+
+/** Macros ingeridos hoy: plan marcado + lo anotado en el diario. */
 export function ingeridoHoy(fecha = hoyISO()) {
   const plan = S.comida.plan;
-  if (!plan) return { kcal: 0, p: 0, c: 0, g: 0 };
   const hecho = comidasHechas(fecha);
-  return plan.comidas
-    .filter((c) => hecho[c.id])
-    .reduce((t, c) => ({
-      kcal: t.kcal + c.macros.kcal,
-      p: t.p + c.macros.p,
-      c: t.c + c.macros.c,
-      g: t.g + c.macros.g,
-    }), { kcal: 0, p: 0, c: 0, g: 0 });
+  const delPlan = plan
+    ? plan.comidas.filter((c) => hecho[c.id]).reduce((t, c) => suma(t, c.macros), CERO)
+    : CERO;
+  return suma(delPlan, macrosDelDiario(fecha));
 }
 
 const SEMANA_MS = 7 * 86400000;

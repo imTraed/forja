@@ -29,6 +29,31 @@ El 1RM estimado sale de Epley contando el RIR como reps que quedaban: `peso × (
 4. **Progreso** — 1RM por ejercicio, volumen semanal, peso corporal e informes.
 5. **Comida** — macros del día, plan editable y lista de la compra.
 
+## Comidas por código de barras
+
+El código de barras no guarda calorías: solo un número (EAN-13 o UPC). Ese número es la llave para buscar en una base de datos.
+
+1. **Leer** — la cámara decodifica el código en el propio móvil. Se usa `BarcodeDetector`, que Chrome en Android trae de serie; en Safari y iOS se carga [ZXing](vendor/zxing-library.min.js) desde `vendor/`, así que también funciona sin conexión. Si la cámara falla, siempre puedes teclear el número.
+2. **Consultar** — con ese número se pregunta a [Open Food Facts](https://world.openfoodfacts.org), que es gratis y no pide clave.
+3. **Escalar** — la base da los valores por 100 g; tú dices los gramos y se anota en el diario del día.
+
+**Los productos locales casi nunca están** en Open Food Facts. Cuando no aparece, la app te deja crearlo una vez con los datos del envase y lo guarda en *Mis productos*, así que el segundo escaneo es instantáneo y sin conexión. Con el tiempo acabas con tu propia base de lo que comes de verdad, que es lo único que importa.
+
+> La cámara solo funciona con HTTPS. Desde el móvil hay que abrir la web publicada, no un archivo local.
+
+## Cuentas (opcional)
+
+Sin configurar nada, la app funciona en local: cada navegador guarda lo suyo. Si quieres cuentas de verdad — para compartirla y que cada uno tenga sus datos aunque cambie de móvil — hace falta un [Supabase](https://supabase.com) gratuito:
+
+1. Crea un proyecto en supabase.com (plan Free).
+2. **SQL Editor → New query**, pega [supabase.sql](supabase.sql) y dale a *Run*. Crea la tabla y las políticas para que nadie pueda leer los datos de otro.
+3. **Authentication → Providers → Email**: si quieres que tus amigos entren al momento, desactiva *Confirm email*. Si lo dejas puesto, tendrán que abrir un correo antes de entrar.
+4. **Project Settings → API**: copia *Project URL* y la clave *anon public* en [js/config.js](js/config.js).
+
+En cuanto esas dos claves estén puestas, la app pide registro e inicio de sesión al abrirse. La clave `anon` es pública a propósito: va en el navegador de todos y no da acceso a nada por sí sola — lo que protege los datos son las políticas RLS del paso 2.
+
+El estado entero (perfil, rutinas, sesiones, chequeos, comida) viaja como un JSON por usuario y se sube solo unos segundos después de cada cambio. Si no hay internet, se sigue guardando en el móvil y se sube cuando vuelva.
+
 ## Instalar en el móvil
 
 Ábrela en Chrome o Safari y usa *Añadir a pantalla de inicio*. Queda como una app: pantalla completa, sin barra del navegador y funcionando sin conexión.
@@ -72,9 +97,12 @@ index.html            shell y barra inferior
 css/app.css           sistema visual (negro, acento dorado, Inter)
 js/app.js             enrutado por hash
 js/store.js           estado, persistencia y consultas al historial
-js/engine/            progression · coach · nutrition · timer · generator
+js/config.js          claves de Supabase (vacío = modo local)
+js/lib/               ui · escaner (códigos de barras) · nube (cuentas y sync)
+js/engine/            progression · coach · nutrition · timer · generator · chequeo
 js/views/             una vista por pestaña
-js/data/              catálogo recortado, alimentos, plantillas de split
+js/data/              catálogo recortado, alimentos, splits, off (Open Food Facts)
+vendor/               ZXing, solo para móviles sin lector nativo
 tools/build-dataset.mjs   regenera el catálogo desde el repo original
 sw.js                 caché offline
 ```

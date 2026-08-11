@@ -4,6 +4,7 @@ import { acts, on, esc, toast, confirmar } from '../lib/ui.js';
 import { CATEGORIAS_EQUIPO } from '../data/i18n.js';
 import { FACTOR_ACTIVIDAD, OBJETIVOS } from '../engine/nutrition.js';
 import { cargar as cargarCatalogo, ejercicio, gifDe, imagenDe } from '../data/catalog.js';
+import { hayNube, usuario, salir } from '../lib/nube.js';
 
 const CACHE_MEDIA = 'forja-media-v1';
 let ctx = null;
@@ -20,6 +21,13 @@ function pintar() {
   ctx.view.innerHTML = `
     <h2 class="page-title">Ajustes</h2>
     <p class="page-sub">Semana ${semanaPrograma()} · ${S.sesiones.length} sesiones guardadas.</p>
+
+    ${hayNube() && usuario() ? `
+      <div class="card">
+        <div class="card-head"><h3>Tu cuenta</h3></div>
+        <p class="muted small">Conectado como <b>${esc(usuario().email)}</b>. Todo lo que hagas se guarda en tu cuenta, así que puedes entrar desde otro móvil y seguir igual.</p>
+        <button class="btn quiet block" data-act="salirCuenta">Cerrar sesión</button>
+      </div>` : ''}
 
     <div class="card accent">
       <div class="card-head"><h3>Versión de la app</h3></div>
@@ -137,6 +145,12 @@ function pintar() {
       pintar();
     },
     modo: (n) => { cambiarModo(n.dataset.m); pintar(); toast(`Modo ${n.dataset.m}`, 'ok'); },
+    salirCuenta: async () => {
+      if (!await confirmar('Cerrar sesión', 'Tus datos quedan guardados en tu cuenta. Al volver a entrar los recuperas.', 'Cerrar sesión')) return;
+      await salir();
+      localStorage.removeItem('forja.v1');
+      location.reload();
+    },
     descanso: (n) => { S.ajustes.descanso[n.dataset.k] = Number(n.dataset.s); guardar(); pintar(); },
     toggle: (n) => { S.ajustes[n.dataset.k] = !S.ajustes[n.dataset.k]; guardar(); pintar(); },
     exportar: () => { exportar(); toast('Respaldo descargado', 'ok'); },

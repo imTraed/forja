@@ -51,7 +51,9 @@ function inicial() {
     sesionActiva: null,
     chequeos: [],
     peso: [],
-    comida: { plan: null, hecho: {}, ajustes: [] },
+    // `diario` es lo que has comido de verdad (escaneado o buscado); `hecho`
+    // son las comidas del plan que has marcado. Se suman las dos cosas.
+    comida: { plan: null, hecho: {}, ajustes: [], diario: {}, misProductos: [] },
     coach: { inicio: null, informes: [], deloadSemana: null, descartes: {} },
   };
 }
@@ -65,6 +67,8 @@ function migrar(guardado) {
   s.ajustes.incrementos = { ...base.ajustes.incrementos, ...guardado.ajustes?.incrementos };
   s.ajustes.descanso = { ...base.ajustes.descanso, ...guardado.ajustes?.descanso };
   s.comida = { ...base.comida, ...guardado.comida };
+  if (!s.comida.diario || Array.isArray(s.comida.diario)) s.comida.diario = {};
+  if (!Array.isArray(s.comida.misProductos)) s.comida.misProductos = [];
   s.coach = { ...base.coach, ...guardado.coach };
   if (!Array.isArray(s.chequeos)) s.chequeos = [];
 
@@ -116,6 +120,15 @@ export async function cargar() {
   }
 }
 
+/**
+ * Se llama en cada cambio, así que la subida a la nube va con retardo: no tiene
+ * sentido mandar el estado entero por cada tecla. Lo local se guarda siempre al
+ * instante, y es lo que manda si no hay red.
+ */
+let subidaPendiente = null;
+let sincronizar = null;
+export const configurarSincronizacion = (fn) => { sincronizar = fn; };
+
 export function guardar() {
   try {
     localStorage.setItem(CLAVE, JSON.stringify(S));
@@ -123,6 +136,11 @@ export function guardar() {
     console.error('No se pudo guardar', e);
   }
   oyentes.forEach((fn) => fn(S));
+
+  if (sincronizar) {
+    clearTimeout(subidaPendiente);
+    subidaPendiente = setTimeout(() => sincronizar(S), 2500);
+  }
 }
 
 export function reemplazarEstado(nuevo) {
