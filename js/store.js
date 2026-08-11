@@ -27,6 +27,7 @@ function inicial() {
       sonido: true,
       vibrar: true,
       pantallaActiva: true,
+      vistos: {},   // explicaciones de primera vez ya descartadas
     },
     rutinas: [],
     rutinaActiva: null,

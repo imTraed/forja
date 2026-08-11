@@ -224,6 +224,21 @@ function empezarSesion(rutina, dia, modo) {
   render(ctx);
 }
 
+/**
+ * Explicación que aparece solo la primera vez que usas una pantalla. Los
+ * botones dicen lo que hacen, pero la primera vez conviene contar el flujo
+ * entero: qué se espera de ti y en qué orden.
+ */
+function tarjetaPrimeraVez(clave, titulo, cuerpoHTML) {
+  if (S.ajustes.vistos?.[clave]) return '';
+  return `
+    <div class="card" style="border-left:3px solid var(--accent)">
+      <div class="eyebrow">${esc(titulo)}</div>
+      <div class="small muted">${cuerpoHTML}</div>
+      <button class="btn sm ghost mt" data-act="ocultarAviso" data-clave="${clave}">Entendido</button>
+    </div>`;
+}
+
 /* ==========================================================================
    Modo Simple (Perezoso)
    ========================================================================== */
@@ -245,6 +260,13 @@ function pintarSesionSimple() {
     </div>
     <div class="bar mt" style="margin-bottom:16px"><i style="width:${total ? (hechas / total) * 100 : 0}%"></i></div>
 
+    ${tarjetaPrimeraVez('lite', 'Cómo va esto', `
+      Te voy pasando los ejercicios de uno en uno. En cada uno haz las series que te digo y,
+      entre serie y serie, dale a <b>Empezar descanso</b>: te aviso con un pitido cuando toque la siguiente.<br><br>
+      <b>Cómo se hace</b> te enseña el movimiento paso a paso.
+      <b>Cambiar ejercicio</b> te busca otro que trabaje el mismo músculo, por si la máquina está ocupada.<br><br>
+      Cuando acabes las series, <b>Siguiente ejercicio</b>.`)}
+
     <div class="card accent" style="text-align: center; padding: 24px 16px;">
       <img src="${gifDe(ex)}" alt="" style="width: 160px; height: 160px; object-fit: cover; border-radius: 16px; margin: 0 auto 16px; display: block; border: 1px solid var(--line);" loading="lazy" onerror="this.style.display='none'">
       <h3 style="text-transform:capitalize;font-size:1.4rem; margin-bottom: 8px;">${esc(ej.nombre)}</h3>
@@ -252,24 +274,33 @@ function pintarSesionSimple() {
         ${esc(tTarget(ej.target))} · ${esc(tEquipo(ej.equipment))}
       </p>
       <div class="row wrap" style="justify-content: center; gap:8px">
-        <button class="btn quiet" data-act="comoSeHace">Instrucciones</button>
-        <button class="btn quiet" data-act="cambiar">Cambiar</button>
+        <button class="btn sm quiet" data-act="comoSeHace">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>
+          Cómo se hace
+        </button>
+        <button class="btn sm quiet" data-act="cambiar">
+          <svg viewBox="0 0 24 24"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg>
+          Cambiar ejercicio
+        </button>
       </div>
     </div>
 
-    <div class="card glow" style="text-align:center; padding: 32px 16px;">
+    <div class="card glow" style="text-align:center; padding: 26px 16px;">
       <h2 style="font-size: 2.2rem; color: var(--text); margin-bottom: 8px;">${ej.series} series</h2>
-      <p class="muted">de ${ej.repMin} a ${ej.repMax} repeticiones</p>
-      
-      <button class="btn ghost mt-lg" data-act="iniciarDescansoSimple">
+      <p class="muted mb0">de ${ej.repMin} a ${ej.repMax} repeticiones</p>
+      <p class="tiny faint" style="margin-top:10px">Haz una serie y dale al botón para cronometrar el descanso antes de la siguiente.</p>
+
+      <button class="btn primary block lg mt" data-act="iniciarDescansoSimple">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        Descansar ${mmss(ej.descanso)}
+        Empezar descanso · ${mmss(ej.descanso)}
       </button>
     </div>
 
     <div class="row mt">
       <button class="btn quiet grow" data-act="anterior" ${s.idx === 0 ? 'disabled' : ''}>Anterior</button>
-      <button class="btn primary grow" data-act="siguienteSimple">${s.idx === s.ejercicios.length - 1 ? 'Finalizar' : 'Siguiente ejercicio'}</button>
+      <button class="btn ${s.idx === s.ejercicios.length - 1 ? 'primary' : 'ghost'} grow" data-act="siguienteSimple">
+        ${s.idx === s.ejercicios.length - 1 ? 'Finalizar entreno' : 'Siguiente ejercicio'}
+      </button>
     </div>
 
     <div id="timer-slot"></div>`;
@@ -355,6 +386,14 @@ function pintarSesionDetallada() {
     </div>
     <div class="bar mt" style="margin-bottom:16px"><i style="width:${total ? (hechas / total) * 100 : 0}%"></i></div>
 
+    ${tarjetaPrimeraVez('pro', 'Cómo va esto', `
+      El peso ya viene puesto: es el que te toca hoy según lo que levantaste la última vez.
+      Haz la serie, corrige el peso o las reps si no salió eso exacto, y dale a <b>Serie hecha</b>.
+      El descanso arranca solo.<br><br>
+      <b>Reps que te quedaban</b> es cuántas más habrías podido hacer. Es lo que me dice si te sobra
+      peso o te falta, así que merece la pena marcarlo.<br><br>
+      Puedes tocar cualquier serie ya guardada para corregirla.`)}
+
     <div class="card accent">
       <div class="row" style="gap:13px;align-items:flex-start">
         <img class="thumb" style="width:74px;height:74px;flex:none" alt=""
@@ -366,8 +405,14 @@ function pintarSesionDetallada() {
             ${esc(tTarget(ej.target))} · ${esc(tEquipo(ej.equipment))} · objetivo ${ej.repMin}-${ej.repMax} reps
           </p>
           <div class="row wrap" style="gap:6px">
-            <button class="btn sm quiet" data-act="comoSeHace">Cómo se hace</button>
-            <button class="btn sm quiet" data-act="cambiar">Cambiar</button>
+            <button class="btn sm quiet" data-act="comoSeHace">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>
+              Cómo se hace
+            </button>
+            <button class="btn sm quiet" data-act="cambiar">
+              <svg viewBox="0 0 24 24"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg>
+              Cambiar ejercicio
+            </button>
           </div>
         </div>
       </div>
@@ -525,6 +570,12 @@ const MANEJADORES = {
     } else if (ej.sets.length < MAX_SERIES) {
       timer.arrancar(ej.descanso);
     }
+    pintarSesion();
+  },
+
+  ocultarAviso: (n) => {
+    S.ajustes.vistos = { ...(S.ajustes.vistos || {}), [n.dataset.clave]: true };
+    guardar();
     pintarSesion();
   },
 
