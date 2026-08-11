@@ -62,8 +62,17 @@ async function pintar() {
   pintarBotonModo();
 }
 
+/** Pestañas ocultas en Lite: se llega a ellas desde el menú del botón +. */
+const OCULTAS_EN_LITE = ['rutinas', 'comida'];
+
 function marcarTab(nombre) {
-  $$('#tabbar a').forEach((a) => a.classList.toggle('active', a.dataset.tab === nombre));
+  const lite = modoApp() === 'lite';
+  $('#tabbar').classList.toggle('lite', lite);
+
+  // En Lite, Rutinas y Comida no tienen pestaña propia: mientras estés en
+  // ellas se queda marcado el +, que es desde donde se entra.
+  const activa = lite && OCULTAS_EN_LITE.includes(nombre) ? 'entreno' : nombre;
+  $$('#tabbar a').forEach((a) => a.classList.toggle('active', a.dataset.tab === activa));
 }
 
 /* ---------- Interruptor de modo, siempre visible en la barra superior ---------- */

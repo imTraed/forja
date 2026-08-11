@@ -118,6 +118,15 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
   border-top: 1px solid var(--line);
   backdrop-filter: blur(16px);
 }
+/**
+ * En Lite la barra baja a tres: Hoy, Entrenar y Yo. Rutinas y Comida no
+ * desaparecen de la app — siguen en el menú del botón +, que es donde se
+ * eligen las cosas puntuales.
+ */
+.tabbar.lite { grid-template-columns: repeat(3, 1fr); }
+.tabbar.lite [data-tab='rutinas'],
+.tabbar.lite [data-tab='comida'] { display: none; }
+
 .tabbar a {
   height: var(--tabbar-h);
   display: flex;
