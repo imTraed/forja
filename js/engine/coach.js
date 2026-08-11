@@ -209,8 +209,10 @@ export function consejosDelDia() {
     });
   }
 
+  // Solo tiene sentido si ya has entrenado alguna vez: a quien acaba de
+  // instalar la app no se le puede decir que lleva 99 días parado.
   const ultimo = S.sesiones.at(-1);
-  const diasParado = ultimo ? diasEntre(ultimo.fecha, hoyISO()) : 99;
+  const diasParado = ultimo ? diasEntre(ultimo.fecha, hoyISO()) : 0;
   if (diasParado >= 7) {
     consejos.push({
       tono: 'warn',
