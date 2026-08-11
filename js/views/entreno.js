@@ -284,20 +284,25 @@ function pintarSesionSimple() {
 
 function pintarResumenSimple() {
   const s = S.sesionActiva;
-  
+  // Solo los ejercicios a los que llegaste: si lo dejaste a medias, no se
+  // apunta trabajo que no hiciste.
+  const hechos = s.ejercicios.slice(0, s.idx + 1);
+
   ctx.view.innerHTML = `
     <h2 class="page-title">Buen trabajo</h2>
-    <p class="page-sub">Antes de irte, anota el peso máximo que levantaste en cada ejercicio para llevar un historial mínimo (si no usaste peso o no quieres anotar, déjalo en 0).</p>
-    
+    <p class="page-sub">Si te acuerdas, dime por encima con cuánto peso fuiste. No hace falta que sea exacto y puedes dejar en blanco lo que quieras: la sesión cuenta igual.</p>
+
     <div class="stack mt-lg">
-      ${s.ejercicios.map((ej, i) => `
+      ${hechos.map((ej, i) => `
         <div class="card" style="padding: 12px; margin-bottom: 0;">
           <div class="row" style="align-items:center; gap: 12px;">
             <img src="${gifDe(ejercicio(ej.exId))}" style="width:48px;height:48px;border-radius:8px;" onerror="this.style.display='none'">
             <div class="grow">
               <b style="font-size:0.9rem">${esc(ej.nombre)}</b>
               <div class="row" style="align-items:center; gap: 8px; margin-top:6px;">
-                <input class="input num peso-max" data-idx="${i}" type="number" inputmode="decimal" step="0.5" placeholder="Peso máx (ej. 20)" style="min-height:40px; padding: 6px 10px; font-size:1rem;">
+                <input class="input num peso-max" data-idx="${i}" type="number" inputmode="decimal" step="0.5"
+                       placeholder="${esCorporal(ej) ? 'Sin peso extra' : 'Aprox. (opcional)'}"
+                       style="min-height:40px; padding: 6px 10px; font-size:1rem;">
                 <span class="muted small">kg</span>
               </div>
             </div>
@@ -305,13 +310,17 @@ function pintarResumenSimple() {
         </div>
       `).join('')}
     </div>
-    
+
     <button class="btn primary block lg mt-lg" data-act="guardarSimple">Guardar y terminar</button>
+    <p class="tiny faint center">Lo que dejes en blanco cuenta como entrenado, pero no lo uso para subirte pesos. Para eso está el modo con pesos.</p>
     <div style="height:32px"></div>
   `;
 
   acts(ctx.view, MANEJADORES);
 }
+
+/** Ejercicios sin carga externa: ahí el 0 kg es el dato correcto. */
+const esCorporal = (ej) => incrementoDe(ej.equipment) === 0;
 
 
 /* ==========================================================================
@@ -496,6 +505,9 @@ const MANEJADORES = {
     const reps = Number($('#in-reps').value);
     if (!reps || reps < 1) return toast('¿Cuántas reps has hecho?', 'bad');
     if (Number.isNaN(peso)) return toast('Falta el peso', 'bad');
+    // Un 0 en un ejercicio con carga no es un dato: sin peso real no puedo
+    // calcular nada. Si no te apetece anotarlo, el sitio es el modo simple.
+    if (peso <= 0 && !esCorporal(ej)) return toast('Pon el peso que has movido', 'bad');
 
     // El récord se compara contra el historial cerrado, antes de apuntar la serie.
     const previo = marcas(historial(ej.exId));
@@ -567,18 +579,29 @@ const MANEJADORES = {
   guardarSimple: () => {
     const s = S.sesionActiva;
     const inputs = Array.from(ctx.view.querySelectorAll('.peso-max'));
-    
+
     inputs.forEach((input) => {
-      const idx = Number(input.dataset.idx);
-      const ej = s.ejercicios[idx];
-      const pesoMax = Number(input.value) || 0;
-      
-      // Creamos series ficticias con el peso máximo y las reps objetivo para el historial de volumen.
-      for(let i=0; i<ej.series; i++) {
-        ej.sets.push({ peso: pesoMax, reps: ej.repMax || 10, rir: 2, ts: Date.now() });
+      const ej = s.ejercicios[Number(input.dataset.idx)];
+      const escrito = input.value.trim();
+      const peso = escrito === '' ? null : Number(escrito);
+
+      // En blanco entra como null, no como 0: la serie cuenta para el volumen
+      // de la semana pero queda fuera del cálculo de progresión, que es lo
+      // honesto cuando no sabemos con cuánto peso se hizo.
+      const pesoFinal = escrito === '' ? (esCorporal(ej) ? 0 : null)
+        : (Number.isNaN(peso) ? null : peso);
+
+      for (let i = 0; i < ej.series; i++) {
+        ej.sets.push({
+          peso: pesoFinal,
+          reps: ej.repMax || 10,
+          rir: null,            // en modo lite nadie mide el esfuerzo real
+          estimado: true,       // marca de que es una aproximación, no un registro
+          ts: Date.now(),
+        });
       }
     });
-    
+
     terminarSesion();
   },
 };
@@ -620,9 +643,14 @@ function editarSerie(i) {
     s.el.querySelectorAll('#ed-rir .chip').forEach((c) => c.classList.toggle('on', c === b));
   });
   s.el.querySelector('#ed-ok').onclick = () => {
-    set.peso = Number(s.el.querySelector('#ed-peso').value);
-    set.reps = Number(s.el.querySelector('#ed-reps').value);
+    const peso = Number(s.el.querySelector('#ed-peso').value);
+    const reps = Number(s.el.querySelector('#ed-reps').value);
+    if (!reps || reps < 1) return toast('¿Cuántas reps has hecho?', 'bad');
+    if (peso <= 0 && !esCorporal(ej)) return toast('Pon el peso que has movido', 'bad');
+    set.peso = peso;
+    set.reps = reps;
     set.rir = rir;
+    delete set.estimado;   // al editarla a mano deja de ser una aproximación
     guardar();
     s.close();
     pintarSesion();
@@ -759,7 +787,8 @@ async function terminarSesion() {
   timer.mantenerPantalla(false);
   guardar();
 
-  const tonelaje = sesion.ejercicios.reduce((t, e) => t + e.sets.reduce((u, x) => u + x.peso * x.reps, 0), 0);
+  // Las series sin peso anotado suman 0 al tonelaje, no NaN.
+  const tonelaje = sesion.ejercicios.reduce((t, e) => t + e.sets.reduce((u, x) => u + (x.peso || 0) * x.reps, 0), 0);
   sheet({
     title: 'Sesión guardada',
     body: `

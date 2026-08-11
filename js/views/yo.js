@@ -387,7 +387,7 @@ function detalleSesion(id) {
               ${e.sets.map((x, i) => `
                 <div class="row tiny" style="justify-content:space-between">
                   <span class="faint">Serie ${i + 1}</span>
-                  <span class="mono">${num(x.peso)} kg × ${x.reps}${x.rir != null ? ` · (${x.rir} de sobra)` : ''}</span>
+                  <span class="mono">${x.peso == null ? 'sin peso anotado' : `${num(x.peso)} kg`} × ${x.reps}${x.estimado ? ' · aprox.' : ''}${x.rir != null ? ` · (${x.rir} de sobra)` : ''}</span>
                 </div>`).join('')}
             </div>
           </div>`).join('')}

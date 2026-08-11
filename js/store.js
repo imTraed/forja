@@ -4,6 +4,7 @@
  * acciones de más abajo. No hay servidor: el respaldo real es exportar el JSON.
  */
 import { hoyISO, diasEntre } from './lib/ui.js';
+import { familiaEquipo } from './data/i18n.js';
 
 const CLAVE = 'forja.v1';
 const VERSION = 1;
@@ -170,8 +171,19 @@ export function siguienteDia(rutina = rutinaActiva()) {
    Historial por ejercicio
    ========================================================================== */
 
-/** Series válidas: las que tienen peso y reps registradas. */
-const validas = (sets) => (sets || []).filter((x) => x.reps > 0 && x.peso != null);
+/**
+ * Series que sirven para calcular progresión: las que llevan peso y reps de
+ * verdad.
+ *
+ * Un 0 en un ejercicio con carga (barra, mancuernas, máquina) no es un dato,
+ * es una serie sin anotar, y meterla dejaría el 1RM estimado en cero y al
+ * motor sin saber qué recomendar. En peso corporal o gomas, en cambio, 0 es
+ * el valor correcto.
+ */
+const validas = (sets, equipment) => {
+  const conCarga = familiaEquipo(equipment) !== 'bodyweight' && familiaEquipo(equipment) !== 'band';
+  return (sets || []).filter((x) => x.reps > 0 && x.peso != null && (!conCarga || x.peso > 0));
+};
 
 /**
  * Historial de un ejercicio, de más antiguo a más reciente.
@@ -181,7 +193,7 @@ export function historial(exId, limite = 0) {
   const out = [];
   for (const s of S.sesiones) {
     const e = s.ejercicios.find((x) => x.exId === exId);
-    const sets = validas(e?.sets);
+    const sets = validas(e?.sets, e?.equipment);
     if (!sets.length) continue;
     const conE1 = sets.map((x) => ({ ...x, e1: e1rm(x.peso, x.reps, x.rir) }));
     const mejor = conE1.reduce((a, b) => (a.e1 >= b.e1 ? a : b));
@@ -209,7 +221,7 @@ export function ejerciciosEntrenados() {
   const mapa = new Map();
   for (const s of S.sesiones) {
     for (const e of s.ejercicios) {
-      if (!validas(e.sets).length) continue;
+      if (!validas(e.sets, e.equipment).length) continue;
       const prev = mapa.get(e.exId);
       if (!prev || s.fecha > prev.fecha) mapa.set(e.exId, { exId: e.exId, nombre: e.nombre, fecha: s.fecha });
     }
