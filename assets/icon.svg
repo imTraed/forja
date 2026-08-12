@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <rect width="512" height="512" rx="112" fill="#0f0f0f"/>
-  <rect x="8" y="8" width="496" height="496" rx="106" fill="none" stroke="#ffd700" stroke-opacity=".25" stroke-width="4"/>
+  <rect x="8" y="8" width="496" height="496" rx="106" fill="none" stroke="#ef4444" stroke-opacity=".25" stroke-width="4"/>
   <text x="256" y="352" font-family="Inter, Segoe UI, system-ui, sans-serif" font-size="290" font-weight="900"
-        text-anchor="middle" fill="#ffd700" letter-spacing="-8">F</text>
-  <rect x="150" y="386" width="212" height="18" rx="9" fill="#ffd700" fill-opacity=".55"/>
+        text-anchor="middle" fill="#ef4444" letter-spacing="-8">F</text>
+  <rect x="150" y="386" width="212" height="18" rx="9" fill="#ef4444" fill-opacity=".55"/>
 </svg>
