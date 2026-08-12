@@ -21,6 +21,7 @@ const datos = {
   actividad: '',
   dias: null,
   categorias: [],
+  modo: '',
 };
 
 const PREGUNTAS = [
@@ -93,6 +94,15 @@ const PREGUNTAS = [
       { valor: 'maquinas', texto: 'Gimnasio básico (Máquinas y algunas pesas libres)' },
       { valor: 'barra', texto: 'Gimnasio completo (Barras, racks, poleas, máquinas)' }
     ]
+  },
+  {
+    campo: 'modo',
+    titulo: '¿Cómo quieres usar la app?',
+    ayuda: 'Las dos versiones tienen lo mismo. Cambia el detalle que te pido mientras entrenas, y puedes cambiarla cuando quieras desde la pantalla de Hoy.',
+    opciones: [
+      { valor: 'lite', texto: 'Lite: solo entrenar. Te guío ejercicio a ejercicio y una vez por semana te pregunto cuatro pesos' },
+      { valor: 'pro', texto: 'Pro: anoto cada serie con su peso y su esfuerzo, y la progresión se calcula al detalle' }
+    ]
   }
 ];
 
@@ -161,6 +171,9 @@ export async function render(ctx) {
         // El generador y store necesitan un objetivo válido (volumen, definicion, mantenimiento)
         const objReal = datos.objetivo === 'fuerza' ? 'volumen' : datos.objetivo;
         datos.objetivo = objReal;
+
+        // Si no llegó a elegir versión, la deducimos de su experiencia.
+        if (!datos.modo) datos.modo = datos.experiencia === 'novato' ? 'lite' : 'pro';
         
         S.perfil = { ...datos, creado: new Date().toISOString() };
         registrarPeso(datos.peso);
@@ -202,8 +215,9 @@ function renderPregunta(idx) {
 
   return `
     <div class="eyebrow">Pregunta ${idx + 1} de ${PREGUNTAS.length}</div>
-    <h2 class="page-title" style="margin-bottom: 24px; font-size: 1.45rem;">${p.titulo}</h2>
-    
+    <h2 class="page-title" style="margin-bottom: ${p.ayuda ? '10' : '24'}px; font-size: 1.45rem;">${p.titulo}</h2>
+    ${p.ayuda ? `<p class="muted small" style="margin-bottom:20px">${esc(p.ayuda)}</p>` : ''}
+
     <div class="stack">
       ${p.opciones.map((o) => `
         <button class="list-item" data-act="responder" data-campo="${p.campo}" data-valor="${o.valor}"

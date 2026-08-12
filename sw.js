@@ -7,7 +7,7 @@
  * móvil sigue abriendo la versión que ya tenía guardada y los cambios no se
  * ven nunca.
  */
-const SHELL = 'forja-shell-v12';
+const SHELL = 'forja-shell-v13';
 const MEDIA = 'forja-media-v1';
 const MEDIA_HOST = 'raw.githubusercontent.com';
 
@@ -22,6 +22,7 @@ const ARCHIVOS = [
   'js/config.js',
   'js/lib/ui.js',
   'js/lib/nube.js',
+  'js/lib/modo.js',
   'js/lib/escaner.js',
   'js/data/off.js',
   'js/data/catalog.js',

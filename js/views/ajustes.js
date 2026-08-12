@@ -1,5 +1,5 @@
 /* Ajustes: perfil, incrementos, descansos, GIFs sin conexión y respaldo. */
-import { S, guardar, exportar, importar, rutinaActiva, semanaPrograma, modoApp, cambiarModo } from '../store.js';
+import { S, guardar, exportar, importar, rutinaActiva, semanaPrograma } from '../store.js';
 import { acts, on, esc, toast, confirmar } from '../lib/ui.js';
 import { CATEGORIAS_EQUIPO } from '../data/i18n.js';
 import { FACTOR_ACTIVIDAD, OBJETIVOS } from '../engine/nutrition.js';
@@ -28,19 +28,6 @@ function pintar() {
         <p class="muted small">Conectado como <b>${esc(usuario().email)}</b>. Todo lo que hagas se guarda en tu cuenta, así que puedes entrar desde otro móvil y seguir igual.</p>
         <button class="btn quiet block" data-act="salirCuenta">Cerrar sesión</button>
       </div>` : ''}
-
-    <div class="card accent">
-      <div class="card-head"><h3>Versión de la app</h3></div>
-      <div class="seg">
-        <button data-act="modo" data-m="lite" class="${modoApp() === 'lite' ? 'on' : ''}">Lite</button>
-        <button data-act="modo" data-m="pro" class="${modoApp() === 'pro' ? 'on' : ''}">Pro</button>
-      </div>
-      <p class="muted small" style="margin-top:10px;margin-bottom:0">
-        ${modoApp() === 'lite'
-    ? 'Te guío ejercicio a ejercicio y los pesos salen del chequeo semanal de cuatro preguntas.'
-    : 'Anotas cada serie con su peso y su esfuerzo, y la progresión se calcula al detalle.'}
-      </p>
-    </div>
 
     <div class="card">
       <div class="card-head"><h3>Perfil</h3></div>
@@ -144,7 +131,6 @@ function pintar() {
       guardar();
       pintar();
     },
-    modo: (n) => { cambiarModo(n.dataset.m); pintar(); toast(`Modo ${n.dataset.m}`, 'ok'); },
     salirCuenta: async () => {
       if (!await confirmar('Cerrar sesión', 'Tus datos quedan guardados en tu cuenta. Al volver a entrar los recuperas.', 'Cerrar sesión')) return;
       await salir();

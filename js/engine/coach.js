@@ -5,7 +5,7 @@
  */
 import {
   S, semanaPrograma, sesionesDeSemana, historial, rutinaActiva,
-  ejerciciosEntrenados, tendenciaPeso, SEMANAS_CALIBRACION, enCalibracion, guardar,
+  ejerciciosEntrenados, tendenciaPeso, SEMANAS_CALIBRACION, enCalibracion, guardar, esLite,
 } from '../store.js';
 
 import { grupoDe, gruposSecundarios, VOLUMEN_OBJETIVO } from '../data/i18n.js';
@@ -206,6 +206,18 @@ export function consejosDelDia() {
       tono: 'accent',
       titulo: `Semana ${sem}`,
       texto: 'Progresión normal: cierra el rango de reps en todas las series y te subo el peso a la siguiente.',
+    });
+  }
+
+  // Las primeras sesiones es cuando decides si la versión que elegiste te
+  // encaja, así que ahí es cuando conviene recordar que se puede cambiar.
+  if (S.sesiones.length < 4) {
+    consejos.push({
+      tono: 'info',
+      titulo: esLite() ? 'Estás en la versión Lite' : 'Estás en la versión Pro',
+      texto: esLite()
+        ? 'Solo tienes que seguir los ejercicios; los pesos te los pregunto una vez por semana. Si prefieres anotar cada serie, cámbiate a Pro aquí abajo, en esta misma pantalla.'
+        : 'Anotas cada serie con su peso. Si se te hace pesado, en Lite solo sigues los ejercicios y te pregunto los pesos una vez por semana. Se cambia aquí abajo, en esta misma pantalla.',
     });
   }
 

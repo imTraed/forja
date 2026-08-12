@@ -2,13 +2,14 @@
 import {
   S, rutinaActiva, siguienteDia, semanaPrograma, enCalibracion, enDeload,
   registrarPeso, pesoActual, historial, SEMANAS_CALIBRACION,
-  chequeoPendiente, ultimoChequeo,
+  chequeoPendiente, ultimoChequeo, modoApp,
 } from '../store.js';
 import { acts, esc, toast, kg, num, hoyISO, fechaCorta, diasEntre } from '../lib/ui.js';
 import { consejosDelDia, informeCalibracionDisponible, generarInformeCalibracion } from '../engine/coach.js';
 import { sugerencia } from '../engine/progression.js';
 import { objetivos, cargarAlimentos, ingeridoHoy, comidasHechas } from '../engine/nutrition.js';
 import { cargar as cargarCatalogo } from '../data/catalog.js';
+import { abrirSelectorModo } from '../lib/modo.js';
 
 let timerConsejo = null;
 
@@ -43,6 +44,7 @@ export async function render(ctx) {
       ` : ''}
     </div>
     ${activa ? tarjetaEnCurso(activa) : tarjetaSesion(rutina, dia)}
+    ${tarjetaVersion()}
     <div style="height:24px"></div>`;
 
   acts(ctx.view, {
@@ -50,6 +52,7 @@ export async function render(ctx) {
     rutinas: () => ctx.ir('/rutinas'),
     wizard: () => ctx.ir('/wizard'),
     chequeo: () => ctx.ir('/chequeo'),
+    cambiarVersion: () => abrirSelectorModo(),
     verInforme: () => { generarInformeCalibracion(); ctx.ir('/yo'); },
   });
 
@@ -101,6 +104,27 @@ function cabecera(sem) {
       ${etiqueta}
     </div>
     <div style="height:16px"></div>`;
+}
+
+/**
+ * El único sitio desde donde se cambia de versión. Va aquí y no en Ajustes
+ * porque es una decisión de cómo usar la app, no una preferencia escondida.
+ */
+function tarjetaVersion() {
+  const lite = modoApp() === 'lite';
+  return `
+    <div class="card">
+      <div class="card-head">
+        <h3>Versión ${lite ? 'Lite' : 'Pro'}</h3>
+        <span class="tag accent">${lite ? 'LITE' : 'PRO'}</span>
+      </div>
+      <p class="muted small">
+        ${lite
+    ? 'Te guío ejercicio a ejercicio y una vez por semana te pregunto cuatro pesos. Si quieres anotar cada serie, cámbiate a Pro.'
+    : 'Anotas cada serie con su peso y su esfuerzo. Si te resulta pesado, en Lite solo tienes que seguir los ejercicios.'}
+      </p>
+      <button class="btn ghost block" data-act="cambiarVersion">Cambiar a ${lite ? 'Pro' : 'Lite'}</button>
+    </div>`;
 }
 
 function bannerChequeo() {
