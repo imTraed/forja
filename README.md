@@ -1,5 +1,7 @@
 # FORJA
 
+**En vivo:** [forja-peach.vercel.app](https://forja-peach.vercel.app) · espejo en [imtraed.github.io/forja](https://imtraed.github.io/forja/)
+
 Entrenador personal en el navegador: rutinas, progresión de pesos, descansos cronometrados y comidas con cantidades concretas. De uso personal, sin cuentas ni servidor.
 
 La idea: dejar de preguntarle a una IA genérica qué peso poner. Apuntas cada serie y la app decide por ti, siempre con la misma regla y explicando el porqué.
