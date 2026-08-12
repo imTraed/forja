@@ -7,13 +7,17 @@
  *
  * Dónde están: supabase.com -> tu proyecto -> Project Settings -> API.
  *   URL      -> "Project URL"
- *   ANON_KEY -> "anon public"
+ *   ANON_KEY -> "anon public" (o "publishable" en proyectos nuevos)
  *
- * La clave anon es pública a propósito: va en el navegador de todos y no da
+ * Esta clave es pública a propósito: va en el navegador de todos y no da
  * acceso a nada por sí sola. Lo que protege los datos son las políticas RLS
- * de la base, que están en el README.
+ * de la base, que están en supabase.sql.
+ *
+ * La clave "secret" (sb_secret_... o "service_role") es la otra mitad del
+ * par y NUNCA va aquí: salta las políticas RLS y da acceso a todo. Esa se
+ * queda fuera del código, no se sube a ningún sitio.
  */
-export const SUPABASE_URL = '';
-export const SUPABASE_ANON_KEY = '';
+export const SUPABASE_URL = 'https://vcufjctblduympjeqath.supabase.co';
+export const SUPABASE_ANON_KEY = 'sb_publishable_nPO7rYqTsAQv3FTYePtoWQ_UV0Kc_Hn';
 
 export const hayNube = () => Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
